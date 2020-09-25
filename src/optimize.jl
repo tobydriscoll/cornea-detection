@@ -107,9 +107,10 @@ function fitcircle(imgfun,m,n,i0,j0,r0,θ=[-π,π];options=missing)
 	function penalty(u)
 		f = (x,lo,hi) -> -log( max(1e-4,(x-lo)*(hi-x)) )
 		i,j,r = u
-		dx = minimum([i-1,m-i])
-		dy = minimum([j-1,n-j])
-		return f(i/m,0.05,0.95) + f(j/n,0.05,0.95) + f(r/m,0.25,min(dx,dy)/m)
+		#dx = minimum([i-1,m-i])
+		#dy = minimum([j-1,n-j])
+		#return f(i/m,0.05,0.95) + f(j/n,0.05,0.95) + f(r/m,0.25,min(dx,dy)/m)
+		return f(i/m,0.08,0.92) + f(j/n,0.08,0.92) + f(r/m,0.25,0.6)
 	end
 	
 	if length(θ)==2  # given a range
