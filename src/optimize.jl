@@ -55,14 +55,18 @@ function initvals(X::AbstractMatrix{T} where T <: AbstractRGB,thresh=0.5)
 	# vertically, use the purkinje
 	icen = length(purk) > 50 ? median(i[1] for i in purk) : m/2
 
+	guess = [(icen,jcen,jr)]
+
 	# modification to use the purkinje horizontally as well
 	if length(purk) > 50
 		# purkinje is roughly 1/3 of the way across the cornea
-		jr = 0.75(jright - median(i[2] for i in purk))
-		jcen = jright - jr
+		jr = round(Int,0.75(jright - median(i[2] for i in purk)))
+		jcen = round(Int,jright - jr)
+		push!(guess,(icen,jcen,jr))
 	end
 
-	return icen,jcen,jr
+	return guess
+	
 end
 
 function initvals(X::AbstractMatrix{T} where T <: Gray{S} where S,thresh=0.75)
@@ -90,15 +94,16 @@ end
 	totalgrad(icen,jcen,r,Z[,trange])
 Computes the sum of the radial derivative in an image along the specified arc of a circle. `Z` must be a callable function that returns numerical values for real arguments (i.e., allow interpolation). If given, `trange` is a 2-vector defining the range of angles to be used, measured ccw from "straight down" in the usual image visualization (i.e., vertically flipped).
 """
-function totalgrad(ic,jc,r,Z,θ)
-    g = zeros(size(θ))
+totalgrad(ic,jc,r,Z,θ) = sum(circlegrad(ic,jc,r,Z,θ))
+function circlegrad(ic,jc,r,Z,θ)
+	g = zeros(size(θ))
 	p2c = (r,t) -> (ic+r*cos(t),jc+r*sin(t))
     for (k,t) in enumerate(θ)
-		Zplus = Z(p2c(r+3,t)...) 
-		Zminus = Z(p2c(r-3,t)...) 
+		Zplus = Z(p2c(r+2,t)...) 
+		Zminus = Z(p2c(r-2,t)...) 
 		g[k] = Zplus - Zminus
-    end
-    return sum(g)
+	end
+    return g
 end
 
 """
@@ -148,5 +153,5 @@ function fitcircle(img)
 	X = imfilter(green.(img),KernelFactors.gaussian((m/80,m/80)))
 	Z = interpimage(X)
 	u_init = initvals(X)
-	fitcircle(Z,m,n,u_init...,π*[-2/3,2/3])
+	fitcircle(Z,m,n,u_init[1]...,π*[-2/3,2/3])
 end

@@ -1,3 +1,23 @@
+function makedirname(subject,visit,trial)
+	if isa(subject,Number)
+		subject = subject < 10 ? "0$(subject)_" : "$(subject)_"
+	elseif !endswith(subject,'_')
+		subject *= "_"
+	end
+
+	return "$subject/visit$visit/t$trial"
+end
+
+function makefilename(subject,visit,trial)
+	if isa(subject,Number)
+		subject = subject < 10 ? "0$(subject)" : "$(subject)"
+	elseif endswith(subject,'_')
+		subject = subject[1:end-1]
+	end
+
+	return "S$(subject)_V$(visit)_T$trial"
+end
+
 """
 	drawcircle!(img,i,j,r[,trange])
 Modifies the image to superimpose a circle of specified center and radius. If `trange` is given, it's a 2-vector defining the range of angles to be used, measured ccw from "straight down" in the usual image visualization (i.e., vertically flipped).
@@ -14,16 +34,16 @@ function drawcircle!(img,i,j,r,trange::AbstractVector=[-π,π])
 	return img
 end
 
-function makemovie(outname,result,sz=(470,706))
+function makemovie(outname,result,sz=(470,706);numframes=Inf)
 	imgstack = []
 	circ = sz[1].*[ result.cenrow result.cencol result.radius ]
 	N = length(result.fname)
-	select = 1:max(1,ceil(Int,(N-1)/(N-1))):N
+	select = 1:max(1,ceil(Int,(N-1)/numframes)):N
 	@showprogress for k in select
 		img = imresize(RGB.(load(result.fname[k])),sz...)
 		drawcircle!(img,circ[k,:]...)
 		push!(imgstack,img)
 	end
-	encodevideo(outname*".mp4",imgstack)
+	encodevideo(outname*".mp4",imgstack,framerate=4)
 	return outname*".mp4"
 end

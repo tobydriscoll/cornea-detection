@@ -1,14 +1,8 @@
 using StatsBase,ImageTransformations,Images,ProgressMeter,CSV,JLD2
 
-function summarize(root,subj,vis,tri,sz=(2824÷2,4240÷2))
-	if isa(subj,Number)
-		subj = subj < 10 ? "0$(subj)_" : "$(subj)_"
-	elseif !endswith(subj,'_')
-		subj *= "_"
-	end
-
-	indir = joinpath(root,"$subj/visit$vis/t$tri")
-	outdir = joinpath("/home/driscoll/tmp","$subj/visit$vis/t$tri")
+function resize(root,subj,vis,tri,sz=(2824÷2,4240÷2))
+	indir = joinpath(root,makedirname(subj,vis,tri))
+	outdir = joinpath("/home/driscoll/tmp",makedirname(subj,vis,tri))
 	ishidden = s -> startswith(basename(s),'.')
 	isimg = s -> !ishidden(s) && any(endswith.(s,[".tif",".tiff",".png"]))
 	summary = (fname = [], size = [], purkrow = [], purkcol = [], freqR = [], freqG = [], freqB = []  )
@@ -24,6 +18,25 @@ function summarize(root,subj,vis,tri,sz=(2824÷2,4240÷2))
 		push!(summary.size,sz)
 		pngname = splitext(fname)[1]*".png"
 		save(joinpath(outdir,pngname),X)
+	end
+end
+
+function summarize(root,subj,vis,tri)
+
+	indir = joinpath(root,makedirname(subj,vis,tri))
+	ishidden = s -> startswith(basename(s),'.')
+	isimg = s -> !ishidden(s) && any(endswith.(s,[".tif",".tiff",".png"]))
+	summary = (fname = [], size = [], purkrow = [], purkcol = [], freqR = [], freqG = [], freqB = []  )
+
+	try
+		append!(summary.fname,filter(isimg,readdir(indir,join=false)))
+	catch
+		@warn "Unable to read anything for $subj/$vis/$tri."
+	end
+	@showprogress for fname in summary.fname
+		X = load(joinpath(indir,fname))
+		sz = size(X)
+		push!(summary.size,sz)
 
 		purk = findpurkinje(X,0.33)
 		push!(summary.purkrow, median(i[1] for i in purk))
@@ -39,7 +52,7 @@ function summarize(root,subj,vis,tri,sz=(2824÷2,4240÷2))
 		push!(summary.freqB,w/prod(sz))
 	end
 	csvname = "summary.csv"
-	CSV.write(joinpath(outdir,csvname),summary)
-	save(joinpath(outdir,"summary.jld2"),"s$(subj[1:2])-v$vis-t$tri",summary)
+	CSV.write(joinpath(indir,csvname),summary)
+	save(joinpath(indir,"summary.jld2"),makefilename(subj,vis,tri),summary)
 	return summary
 end

@@ -23,18 +23,21 @@ function detectiondata(img,m,n)
 		(method = NelderMead(initial_simplex=Optim.AffineSimplexer(m÷5,0)),x_tol = 5e-2,f_tol = 1e-6) 
 	)
 	
-	ui = initvals(img).*(m/size(img,1))
-	@debug "ui: $ui"
-	u_init = [ui,(m/2.,n/2.,m/2.7)]
+	u_init = [ (m/size(img,1)).*i for i in initvals(img) ]
+	push!(u_init, (m/2.,n/2.,m/2.7))
 
 	# try to screen out the purkinje and eyelid lines
 	X = imresize(img,m,n)
 	G,B = green.(X),blue.(X)
 	Bmax = mapwindow(maximum,B,(15,15))
-	fake = findall(Bmax.>0.2*maximum(B))
-	G[fake] .= 0.33
+	maxB = maximum(B)
+	for i in 1:m, j in 1:n 
+		if (Bmax[i,j] > 0.6*maxB) && G[i,j] > 0.25
+			G[i,j] = 0.33
+		end
+	end
 	
-	ker = KernelFactors.gaussian((m/64,m/64))
+	ker = KernelFactors.gaussian((m/80,m/80))
 	Z = interpimage(imfilter(G,ker))
 
 	return Z,θ,u_init,options
@@ -55,13 +58,8 @@ function detect(img::AbstractMatrix{T} where T <: AbstractRGB,sz=(706,1060))
 end
 
 function detectfolder(root,subj,vis,tri,sz=(706,1060))
-	if isa(subj,Number)
-		subj = subj < 10 ? "0$(subj)_" : "$(subj)_"
-	elseif !endswith(subj,'_')
-		subj *= "_"
-	end
 
-	indir = joinpath(root,"$subj/visit$vis/t$tri")
+	indir = joinpath(root,makedirname(subj,vis,tri))
 	ishidden = s -> startswith(basename(s),'.')
 	isimg = s -> !ishidden(s) && any(endswith.(s,[".tif",".tiff",".png"]))
 	result = (fname = [], cenrow = [], cencol = [], radius = [], fmin = [], init = [], method = [] )
@@ -82,7 +80,7 @@ function detectfolder(root,subj,vis,tri,sz=(706,1060))
 
 		Z,θ,u_init,options = detectiondata(img,sz...)
 		if !isempty(result.radius)
-			@show new_ui = sz[1].*(result.cenrow[end],result.cencol[end],result.radius[end])
+			new_ui = sz[1].*(result.cenrow[end],result.cencol[end],result.radius[end])
 			push!(u_init,new_ui)
 		end
 		u,fmin,best = detect(img,sz)

@@ -5,7 +5,8 @@ using ImageIO,VideoIO
 using Images,ImageFiltering,ImageTransformations,Interpolations
 using Optim,Statistics,ProgressMeter
 
-export findpurkinje,detect,detectfolder,detectmovie,makemovie
+export findpurkinje,detect,detectfolder,detectmovie
+export makedirname,makefilename,makemovie
 
 include("optimize.jl")
 include("process.jl")
