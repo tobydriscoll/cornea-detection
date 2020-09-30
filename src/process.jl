@@ -20,18 +20,19 @@ function detectiondata(img,m,n)
 	
 	options = ( 
 		(method = NewtonTrustRegion(),x_tol = 5e-2,f_tol = 1e-6),
-		(method = SimulatedAnnealing(),x_tol = 5e-2,f_tol = 1e-6) 
+		(method = NelderMead(initial_simplex=Optim.AffineSimplexer(m÷5,0)),x_tol = 5e-2,f_tol = 1e-6) 
 	)
 	
 	ui = initvals(img).*(m/size(img,1))
+	@debug "ui: $ui"
 	u_init = [ui,(m/2.,n/2.,m/2.7)]
 
 	# try to screen out the purkinje and eyelid lines
 	X = imresize(img,m,n)
 	G,B = green.(X),blue.(X)
 	Bmax = mapwindow(maximum,B,(15,15))
-	purk = findall(Bmax.>0.25*maximum(B))
-	G[purk] .= 0.33
+	fake = findall(Bmax.>0.2*maximum(B))
+	G[fake] .= 0.33
 	
 	ker = KernelFactors.gaussian((m/64,m/64))
 	Z = interpimage(imfilter(G,ker))
@@ -44,6 +45,7 @@ function detect(img::AbstractMatrix{T} where T <: AbstractRGB,sz=(706,1060))
 	u,fmin,best = [],Inf,[]
 	for ui in u_init, opt in options
 		unew,fnew = fitcircle(Z,sz...,ui...,θ,options=opt)
+		@debug "latest: $fnew,$ui,$opt"
 		if fnew < fmin 
 			u,fmin = unew,fnew
 			best = (ui,opt)
@@ -62,7 +64,7 @@ function detectfolder(root,subj,vis,tri,sz=(706,1060))
 	indir = joinpath(root,"$subj/visit$vis/t$tri")
 	ishidden = s -> startswith(basename(s),'.')
 	isimg = s -> !ishidden(s) && any(endswith.(s,[".tif",".tiff",".png"]))
-	result = (fname = [], rowcen = [], colcen = [], radius = [], fmin = [], best = [] )
+	result = (fname = [], cenrow = [], cencol = [], radius = [], fmin = [], init = [], method = [] )
 	try
 		append!(result.fname,filter(isimg,readdir(indir,join=true)))
 	catch
@@ -80,15 +82,17 @@ function detectfolder(root,subj,vis,tri,sz=(706,1060))
 
 		Z,θ,u_init,options = detectiondata(img,sz...)
 		if !isempty(result.radius)
-			push!(u_init,sz[1].*(result.rowcen[end],result.colcen[end],result.radius[end]))
+			@show new_ui = sz[1].*(result.cenrow[end],result.cencol[end],result.radius[end])
+			push!(u_init,new_ui)
 		end
 		u,fmin,best = detect(img,sz)
 
-		push!(result.rowcen,u[1]/sz[1])
-		push!(result.colcen,u[2]/sz[1])
+		push!(result.cenrow,u[1]/sz[1])
+		push!(result.cencol,u[2]/sz[1])
 		push!(result.radius,u[3]/sz[1])
 		push!(result.fmin,fmin)
-		push!(result.best,best)
+		push!(result.init,best[1])
+		push!(result.method,best[2])		
 	end
 	return result
 end
@@ -104,7 +108,7 @@ function detectmovie(root,subj,vis,tri)
 	fname = joinpath(names[subj],"videos",allfiles[10*(vis-1) + tri])
 	movie = VideoIO.openvideo(fname)
 
-	result = (fname = [], rowcen = [], colcen = [], radius = [], fmin = [], best = [] )
+	result = (fname = [], cenrow = [], cencol = [], radius = [], fmin = [], init = [], method = [] )
 	img = read(movie)  # allocate space 
 	sz = size(img)
 	if sz[2] > 1060
@@ -116,18 +120,16 @@ function detectmovie(root,subj,vis,tri)
 		read!(movie,img)
 		Z,θ,u_init,options = detectiondata(img,sz...)
 		if !isempty(result.radius)
-			push!(u_init,sz[1].*(result.rowcen[end],result.colcen[end],result.radius[end]))
+			push!(u_init,sz[1].*(result.cenrow[end],result.cencol[end],result.radius[end]))
 		end
 		u,fmin,best = detect(img,sz)
 
-		push!(result.rowcen,u[1]/sz[1])
-		push!(result.colcen,u[2]/sz[1])
+		push!(result.cenrow,u[1]/sz[1])
+		push!(result.cencol,u[2]/sz[1])
 		push!(result.radius,u[3]/sz[1])
 		push!(result.fmin,fmin)
-		push!(result.best,best)
+		push!(result.init,best[1])
+		push!(result.method,best[2])		
 	end
 	return result
-end
-
-function makemovie(result,fname,sz=(470,706))
 end
