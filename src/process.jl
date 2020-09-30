@@ -43,7 +43,7 @@ function detectiondata(img,m,n)
 	return Z,θ,u_init,options
 end
 
-function detect(img::AbstractMatrix{T} where T <: AbstractRGB,sz=(706,1060))
+function detect(img::AbstractMatrix{T} where T <: AbstractRGB,sz=size(img))
 	Z,θ,u_init,options = detectiondata(img,sz...)
 	u,fmin,best = [],Inf,[]
 	for ui in u_init, opt in options
@@ -57,7 +57,7 @@ function detect(img::AbstractMatrix{T} where T <: AbstractRGB,sz=(706,1060))
 	return u,fmin,best
 end
 
-function detectfolder(root,subj,vis,tri,sz=(706,1060))
+function detectfolder(root,subj,vis,tri,sz=[])
 
 	indir = joinpath(root,makedirname(subj,vis,tri))
 	ishidden = s -> startswith(basename(s),'.')
@@ -67,6 +67,9 @@ function detectfolder(root,subj,vis,tri,sz=(706,1060))
 		append!(result.fname,filter(isimg,readdir(indir,join=true)))
 	catch
 		@warn "Unable to read anything for $subj/$vis/$tri."
+	end
+	if isempty(sz)
+		sz = size(load(result.fname[1]))
 	end
 	@showprogress for fname in copy(result.fname)
 		img = load(fname)
