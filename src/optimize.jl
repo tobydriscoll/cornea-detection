@@ -1,5 +1,13 @@
+function findpurkinje(img,thresh=0.25)
+	B = blue.(img)
+	idx = findall(B .> thresh*maximum(B))
+	m,n = size(img)
+	keep = i -> (5 < i[1] < 0.66m) && (5 < i[2] < 0.5n)
+	return filter(keep,idx)
+end
+
 function findpeaks(idx,sz,dim)
-	# look for the peaks in the distribution of indices 
+	# look for the peaks in a distribution of indices 
 	vals = getindex.(idx,dim)
 
 	edges = LinRange(1,sz[dim]+1,101)
@@ -23,16 +31,17 @@ function initvals(X::AbstractMatrix{T} where T <: AbstractRGB,thresh=0.5)
 	m,n = size(X)
 	
 	# horizontally, use the sclera's brightness
-	G,B = green.(X),blue.(X)
+	G = green.(X)
 
 	## try to screen out the purkinje 
-	purk = findall(B.>0.25*maximum(B))
+	purk = findpurkinje(X)
 	G[purk] .= 0
 	idx = findall(G.>thresh*maximum(G))
 
-	jcen = jr = 0
+	jcen = jr = jleft = jright = 0
 	try
 		jleft,jright = findpeaks(idx,(m,n),2)
+		@debug "jleft,jright = $jleft,$jright"
 		jcen = (jleft+jright)/2
 		jr = (jright-jleft)/2
 	catch 
@@ -43,20 +52,14 @@ function initvals(X::AbstractMatrix{T} where T <: AbstractRGB,thresh=0.5)
 		jr = m÷3 
 	end
 
-	# vertically, look for the purkinje
-	idx = findall(B.>thresh*maximum(B))
-	icen = 0
-	if length(idx) > 16
-		icen = median(i[1] for i in idx)
-	else
-		try
-			# fall back on the sclera if possible
-			keep = idx -> jleft < idx[2] < jright
-			itop,ibot = findpeaks(filter(keep,idx),(m,n),1)
-			icen = (itop+ibot)/2
-		catch
-			icen = m/2
-		end
+	# vertically, use the purkinje
+	icen = length(purk) > 50 ? median(i[1] for i in purk) : m/2
+
+	# modification to use the purkinje horizontally as well
+	if length(purk) > 50
+		# purkinje is roughly 1/3 of the way across the cornea
+		jr = 0.75(jright - median(i[2] for i in purk))
+		jcen = jright - jr
 	end
 
 	return icen,jcen,jr
@@ -110,7 +113,7 @@ function fitcircle(imgfun,m,n,i0,j0,r0,θ=[-π,π];options=missing)
 		#dx = minimum([i-1,m-i])
 		#dy = minimum([j-1,n-j])
 		#return f(i/m,0.05,0.95) + f(j/n,0.05,0.95) + f(r/m,0.25,min(dx,dy)/m)
-		return f(i/m,0.08,0.92) + f(j/n,0.08,0.92) + f(r/m,0.25,0.6)
+		return f(i/m,0.05,0.95) + f(j/n,0.05,0.95) + f(r/m,0.25,0.6)
 	end
 	
 	if length(θ)==2  # given a range
