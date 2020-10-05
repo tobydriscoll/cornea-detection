@@ -44,7 +44,10 @@ function detectiondata(img,m,n)
 end
 
 function detect(img::AbstractMatrix{T} where T <: AbstractRGB,sz=size(img))
-	Z,θ,u_init,options = detectiondata(img,sz...)
+	detect(sz,detectiondata(img,sz...)...)
+end
+
+function detect(sz,Z,θ,u_init,options)
 	u,fmin,best = [],Inf,[]
 	for ui in u_init, opt in options
 		unew,fnew = fitcircle(Z,sz...,ui...,θ,options=opt)
@@ -57,22 +60,21 @@ function detect(img::AbstractMatrix{T} where T <: AbstractRGB,sz=size(img))
 	return u,fmin,best
 end
 
-function detectfolder(root,subj,vis,tri,sz=[])
-
+function detectfolder(root,subj,vis,tri,sz=[];dosave=true)
 	indir = joinpath(root,makedirname(subj,vis,tri))
 	ishidden = s -> startswith(basename(s),'.')
 	isimg = s -> !ishidden(s) && any(endswith.(s,[".tif",".tiff",".png"]))
-	result = (fname = [], cenrow = [], cencol = [], radius = [], fmin = [], init = [], method = [] )
+	result = (fname = String[], cenrow = Float32[], cencol = Float32[], radius = Float32[], fmin = Float32[], init = [], method = [] )
 	try
-		append!(result.fname,filter(isimg,readdir(indir,join=true)))
+		append!(result.fname,filter(isimg,readdir(indir,join=false)))
 	catch
 		@warn "Unable to read anything for $subj/$vis/$tri."
 	end
 	if isempty(sz)
-		sz = size(load(result.fname[1]))
+		sz = size(load(joinpath(indir,result.fname[1])))
 	end
 	@showprogress for fname in copy(result.fname)
-		img = load(fname)
+		img = load(joinpath(indir,fname))
 
 		# too dark to bother?
 		if count(green.(img) .> 0.25 ) < 0.1*prod(size(img))
@@ -86,7 +88,7 @@ function detectfolder(root,subj,vis,tri,sz=[])
 			new_ui = sz[1].*(result.cenrow[end],result.cencol[end],result.radius[end])
 			push!(u_init,new_ui)
 		end
-		u,fmin,best = detect(img,sz)
+		u,fmin,best = detect(sz,Z,θ,u_init,options)
 
 		push!(result.cenrow,u[1]/sz[1])
 		push!(result.cencol,u[2]/sz[1])
@@ -95,6 +97,13 @@ function detectfolder(root,subj,vis,tri,sz=[])
 		push!(result.init,best[1])
 		push!(result.method,best[2])		
 	end
+
+	if dosave
+		outfile = makefilename(subj,vis,tri)
+		save("$(outfile).jld2","result",result)
+		CSV.write("$(outfile).csv",result)
+	end
+
 	return result
 end
 
@@ -133,4 +142,9 @@ function detectmovie(root,subj,vis,tri)
 		push!(result.method,best[2])		
 	end
 	return result
+end
+
+function getresults(root,subject,visit,trial)
+	fname = makefilename(subject,visit,trial)
+	return load(joinpath(root,"$(fname).jld2"))["result"]
 end
