@@ -4,8 +4,10 @@ using StatsBase
 using ImageIO,VideoIO
 using Images,ImageFiltering,ImageTransformations,Interpolations
 using Optim,Statistics,ProgressMeter
+using JLD2,CSV
 
 export findpurkinje,detect,detectfolder,detectmovie
+export summarize,getsummary,getresults
 export makedirname,makefilename,makemovie
 
 include("optimize.jl")
