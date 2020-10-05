@@ -5,7 +5,7 @@ function resize(root,subj,vis,tri,sz=(2824÷2,4240÷2))
 	outdir = joinpath("/home/driscoll/tmp",makedirname(subj,vis,tri))
 	ishidden = s -> startswith(basename(s),'.')
 	isimg = s -> !ishidden(s) && any(endswith.(s,[".tif",".tiff",".png"]))
-	summary = (fname = [], size = [], purkrow = [], purkcol = [], freqR = [], freqG = [], freqB = []  )
+	summary = (fname = String[], size = [], purkrow = Float64[], purkcol = Float64[], freqR = Vector{Float64}[], freqG = Vector{Float64}[], freqB = Vector{Float64}[]  )
 
 	try
 		append!(summary.fname,filter(isimg,readdir(indir,join=false)))
@@ -21,12 +21,11 @@ function resize(root,subj,vis,tri,sz=(2824÷2,4240÷2))
 	end
 end
 
-function summarize(root,subj,vis,tri)
-
+function summarize(root,subj,vis,tri;resize=false)
 	indir = joinpath(root,makedirname(subj,vis,tri))
 	ishidden = s -> startswith(basename(s),'.')
 	isimg = s -> !ishidden(s) && any(endswith.(s,[".tif",".tiff",".png"]))
-	summary = (fname = [], size = [], purkrow = [], purkcol = [], freqR = [], freqG = [], freqB = []  )
+	summary = (fname = String[], size = [], avgG = Float32[], purkrow = Float32[], purkcol = Float32[], freqR = [], freqG = [], freqB = []  )
 
 	try
 		append!(summary.fname,filter(isimg,readdir(indir,join=false)))
@@ -36,14 +35,29 @@ function summarize(root,subj,vis,tri)
 	@showprogress for fname in summary.fname
 		X = load(joinpath(indir,fname))
 		sz = size(X)
-		push!(summary.size,sz)
 
-		purk = findpurkinje(X,0.33)
-		push!(summary.purkrow, median(i[1] for i in purk))
-		push!(summary.purkcol, median(i[2] for i in purk))
+		if resize 
+			sz = div.(sz,2)
+			X = imresize(X,sz)
+			pngname = splitext(fname)[1]*".png"
+			save(joinpath("/home/driscoll/tmp",makedirname(subj,vis,tri),pngname),X)
+		end	
 
+		push!(summary.size,[sz...])
+
+		purk = findpurkinje(X,0.5)
+		if length(purk) > 40
+			push!(summary.purkrow, median(i[1] for i in purk))
+			push!(summary.purkcol, median(i[2] for i in purk))
+		else
+			push!(summary.purkrow, NaN)
+			push!(summary.purkcol, NaN)
+		end
 		edges = collect(LinRange(0,1,33))
 		edges[1] = -eps()
+
+		push!(summary.avgG,mean(green.(X)))
+
 		w = fit(Histogram,vec(red.(X)),edges,closed=:right).weights
 		push!(summary.freqR,w/prod(sz))
 		w = fit(Histogram,vec(green.(X)),edges,closed=:right).weights
@@ -53,6 +67,13 @@ function summarize(root,subj,vis,tri)
 	end
 	csvname = "summary.csv"
 	CSV.write(joinpath(indir,csvname),summary)
-	save(joinpath(indir,"summary.jld2"),makefilename(subj,vis,tri),summary)
+	tmp = joinpath(tempname(),"summary.jld2")
+	save(tmp,makefilename(subj,vis,tri),summary)
+	cp(tmp,joinpath(indir,"summary.jld2"),force=false)
 	return summary
+end
+
+function getsummary(root,subj,vis,tri)
+	#csv = CSV.File(joinpath(root,makedirname(subj,vis,tri),"summary.csv"))
+	return load(joinpath(root,makedirname(subj,vis,tri),"summary.jld2"))[makefilename(subj,vis,tri)]
 end
