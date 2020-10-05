@@ -18,6 +18,16 @@ function makefilename(subject,visit,trial)
 	return "S$(subject)_V$(visit)_T$trial"
 end
 
+function getsummary(root,subject,visit,trial)
+	fname = makefilename(subject,visit,trial)
+	return load(joinpath(root,makedirname(subject,visit,trial),"summary.jld2"))[fname] |> DataFrame 
+end
+
+function getresults(root,subject,visit,trial)
+	fname = makefilename(subject,visit,trial)
+	return load(joinpath(root,"$(fname).jld2"))["result"] |> DataFrame 
+end
+
 """
 	drawcircle!(img,i,j,r[,trange])
 Modifies the image to superimpose a circle of specified center and radius. If `trange` is given, it's a 2-vector defining the range of angles to be used, measured ccw from "straight down" in the usual image visualization (i.e., vertically flipped).

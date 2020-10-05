@@ -143,8 +143,3 @@ function detectmovie(root,subj,vis,tri)
 	end
 	return result
 end
-
-function getresults(root,subject,visit,trial)
-	fname = makefilename(subject,visit,trial)
-	return load(joinpath(root,"$(fname).jld2"))["result"]
-end

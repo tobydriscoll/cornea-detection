@@ -1,5 +1,3 @@
-using StatsBase,ImageTransformations,Images,ProgressMeter,CSV,JLD2
-
 function resize(root,subj,vis,tri,sz=(2824÷2,4240÷2))
 	indir = joinpath(root,makedirname(subj,vis,tri))
 	outdir = joinpath("/home/driscoll/tmp",makedirname(subj,vis,tri))
@@ -73,7 +71,3 @@ function summarize(root,subj,vis,tri;resize=false)
 	return summary
 end
 
-function getsummary(root,subj,vis,tri)
-	#csv = CSV.File(joinpath(root,makedirname(subj,vis,tri),"summary.csv"))
-	return load(joinpath(root,makedirname(subj,vis,tri),"summary.jld2"))[makefilename(subj,vis,tri)]
-end
