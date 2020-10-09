@@ -69,27 +69,6 @@ function initvals(X::AbstractMatrix{T} where T <: AbstractRGB,thresh=0.5)
 	
 end
 
-function initvals(X::AbstractMatrix{T} where T <: Gray{S} where S,thresh=0.75)
-	m,n = size(X)
-	
-	# use the sclera's brightness if possible
-	idx = findall(X.>thresh*maximum(X))
-	jleft,jright = findpeaks(idx,n÷2,2)
-
-	jcen = (jleft+jright)/2
-	jr = (jright-jleft)/2
-
-	try
-		keep = idx -> jleft < idx[2] < jright
-		itop,ibot = findpeaks(filter(keep,idx),m÷2,1)
-		icen = (itop+ibot)/2
-	catch
-		icen = m/2
-	end
-
-	return icen,jcen,jr
-end
-
 """
 	totalgrad(icen,jcen,r,Z[,trange])
 Computes the sum of the radial derivative in an image along the specified arc of a circle. `Z` must be a callable function that returns numerical values for real arguments (i.e., allow interpolation). If given, `trange` is a 2-vector defining the range of angles to be used, measured ccw from "straight down" in the usual image visualization (i.e., vertically flipped).

@@ -1,12 +1,11 @@
 module CorneaDetection
 
-using StatsBase
 using ImageIO,VideoIO
 using Images,ImageFiltering,ImageTransformations,Interpolations
-using Optim,Statistics,ProgressMeter
+using Optim,Statistics,ProgressMeter,StatsBase
 using JLD2,CSV,DataFrames
 
-export findpurkinje,detect,detectfolder,detectmovie
+export findpurkinje,detect,detectfolder
 export summarize,getsummary,getresults
 export makedirname,makefilename,makemovie
 
