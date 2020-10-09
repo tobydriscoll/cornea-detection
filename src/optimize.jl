@@ -1,4 +1,8 @@
-function findpurkinje(img,thresh=0.25)
+"""
+	findpurkinje(img,thresh=0.5)
+Return indices of pixels believed to be in the purkinje of the image `img`. Decrease `thresh` toward zero to include more pixels, or increase to one to include fewer. Returns a vector of `CartesianIndex`.
+"""
+function findpurkinje(img,thresh=0.5)
 	B = blue.(img)
 	idx = findall(B .> thresh*maximum(B))
 	m,n = size(img)
@@ -6,6 +10,10 @@ function findpurkinje(img,thresh=0.25)
 	return filter(keep,idx)
 end
 
+"""
+	findpeaks(index,sz,dim)
+Look for peaks in the distribution of a vector `index` of indexes. Tuple `sz` is the size of the image that the indexes are taken from, and `dim` is the dimension (1=rows,2=columns) to operate in. Returns a pair of real values at the peaks of the distributions in the two halves of the range of the index.
+"""
 function findpeaks(idx,sz,dim)
 	# look for the peaks in a distribution of indices 
 	vals = getindex.(idx,dim)
@@ -24,49 +32,45 @@ function findpeaks(idx,sz,dim)
 end
 
 """
-	initvals(img[,thresh])
-Find the midpoint of the image portion containing all sufficiently large pixel values, as measured by the average values along horizontal and vertical lines. Default threshhold is 0.1.
+	initvals(img,thresh=0.5)
+Try to find good initial guesses for the cornea position in image `img`, which should be full color. The `thresh` parameter is the fraction of the max in the green channel intensity that a pixel should have to be considered part of the sclera. Returns a vector of zero to two tuples of (center_i,center_j,radius)
 """ 
 function initvals(X::AbstractMatrix{T} where T <: AbstractRGB,thresh=0.5)
 	m,n = size(X)
+	purk = findpurkinje(X,0.4)
 	
-	# horizontally, use the sclera's brightness
-	G = green.(X)
+	# vertically, use the purkinje
+	i_c = length(purk) > 50 ? median(i[1] for i in purk) : m/2
 
-	## try to screen out the purkinje 
-	purk = findpurkinje(X)
-	G[purk] .= 0
+	# horizontal guess 1: use the sclera's brightness
+	G = green.(X) 
+	G[purk] .= 0  # ignore the purkinje 
 	idx = findall(G.>thresh*maximum(G))
-
-	jcen = jr = jleft = jright = 0
+	
+	## get distribution peaks
+	j_c = r_c = jleft = jright = 0
 	try
 		jleft,jright = findpeaks(idx,(m,n),2)
 		@debug "jleft,jright = $jleft,$jright"
-		jcen = (jleft+jright)/2
-		jr = (jright-jleft)/2
+		j_c = (jleft+jright)/2
+		r_c = (jright-jleft)/2
 	catch 
 	end
 
-	if jr < m/4
-		jcen = n÷2
-		jr = m÷3 
-	end
+	## reject if the radius is unrealistic
+	@debug "init1 = ($i_c,$j_c,$r_c)"
+	guess = r_c > m/4 ? [(i_c,j_c,r_c)] : []
 
-	# vertically, use the purkinje
-	icen = length(purk) > 50 ? median(i[1] for i in purk) : m/2
-
-	guess = [(icen,jcen,jr)]
-
-	# modification to use the purkinje horizontally as well
+	# horizontal guess 2: use the purkinje heuristically
 	if length(purk) > 50
 		# purkinje is roughly 1/3 of the way across the cornea
-		jr = round(Int,0.75(jright - median(i[2] for i in purk)))
-		jcen = round(Int,jright - jr)
-		push!(guess,(icen,jcen,jr))
+		r_c = 0.75(jright - median(i[2] for i in purk))
+		j_c = jright - r_c
+		@debug "init2 = ($i_c,$j_c,$r_c)"
+		push!(guess,(i_c,j_c,r_c))
 	end
 
 	return guess
-	
 end
 
 """
