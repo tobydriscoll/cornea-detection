@@ -2,8 +2,6 @@ resize(root::String,subj::Number,vis::Number,tri::Number,args...) = resize(root,
 function resize(rootin::String,rootout::String,subj,vis,tri,sz=(2824÷2,4240÷2))
 	indir = joinpath(rootin,makedirname(subj,vis,tri))
 	outdir = joinpath(rootout,makedirname(subj,vis,tri))
-	ishidden = s -> startswith(basename(s),'.')
-	isimg = s -> !ishidden(s) && any(endswith.(s,[".tif",".tiff",".png"]))
 	summary = (fname = String[], size = [], purkrow = Float64[], purkcol = Float64[], freqR = Vector{Float64}[], freqG = Vector{Float64}[], freqB = Vector{Float64}[]  )
 
 	try
@@ -22,8 +20,6 @@ end
 
 function summarize(root,subj,vis,tri;resize=false)
 	indir = joinpath(root,makedirname(subj,vis,tri))
-	ishidden = s -> startswith(basename(s),'.')
-	isimg = s -> !ishidden(s) && any(endswith.(s,[".tif",".tiff",".png"]))
 	summary = (fname = String[], size = [], avgG = Float32[], purkrow = Float32[], purkcol = Float32[], freqR = [], freqG = [], freqB = []  )
 
 	try

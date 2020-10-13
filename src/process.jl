@@ -1,6 +1,10 @@
+
+ishidden = s -> startswith(basename(s),'.')
+isimg = s -> !ishidden(s) && any(endswith.(lowercase(s),[".tif",".tiff",".png",".jpg",".jpeg"]))
+
 """
-	interpimage (img[,kernel][,post=f])
-Returns a callable function that performs interpolation/extrapolation of a filtered image. If `kernel` is provided, first filter the image with the given kernel. If `post` keyword is given, the provided value is a function applied to the result of the interpolation; default is `float`.
+	interpimage (img;post=float)
+Returns a callable function that performs interpolation/extrapolation of a filtered image. If `post` keyword is given, the provided value is a function applied to the result of the interpolation; default is `float`.
 """
 function interpimage(img;post=float)
 	X = interpolate(img, BSpline(Linear()))
@@ -8,6 +12,7 @@ function interpimage(img;post=float)
 	return (i,j) -> post(Z(i,j))
 end
 
+"Return data relevant for cornea detection to be used on the given image."
 function detectiondata(img,m,n)
 	# select the angles for optimization of the circle residual
 	θ = 2π*(-180:180)/360
@@ -18,11 +23,13 @@ function detectiondata(img,m,n)
 	end
 	θ = θ[select]
 	
+	# optimization methods
 	options = ( 
 		(method = NewtonTrustRegion(),x_tol = 5e-2,f_tol = 1e-6),
 		(method = NelderMead(initial_simplex=Optim.AffineSimplexer(m÷5,0)),x_tol = 5e-2,f_tol = 1e-6) 
 	)
 	
+	# optimization initialization
 	u_init = [ (m/size(img,1)).*i for i in initvals(img) ]
 	push!(u_init, (m/2.,n/2.,m/2.7))
 
@@ -37,16 +44,19 @@ function detectiondata(img,m,n)
 		end
 	end
 	
+	# smooth and interpolate green channel
 	ker = KernelFactors.gaussian((m/80,m/80))
 	Z = interpimage(imfilter(G,ker))
 
 	return Z,θ,u_init,options
 end
 
+"Detect the cornea in an image using default choices."
 function detect(img::AbstractMatrix{T} where T <: AbstractRGB,sz=size(img))
 	detect(sz,detectiondata(img,sz...)...)
 end
 
+"Detect the cornea in an image using provided choices."
 function detect(sz,Z,θ,u_init,options)
 	u,fmin,best = [],Inf,[]
 	for ui in u_init, opt in options
@@ -62,8 +72,6 @@ end
 
 function detectfolder(root,subj,vis,tri,sz=[];dosave=true)
 	indir = joinpath(root,makedirname(subj,vis,tri))
-	ishidden = s -> startswith(basename(s),'.')
-	isimg = s -> !ishidden(s) && any(endswith.(s,[".tif",".tiff",".png"]))
 	result = (fname = String[], cenrow = Float32[], cencol = Float32[], radius = Float32[], fmin = Float32[], init = [], method = [] )
 	try
 		append!(result.fname,filter(isimg,readdir(indir,join=false)))
