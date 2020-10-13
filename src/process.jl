@@ -70,19 +70,19 @@ function detect(sz,Z,θ,u_init,options)
 	return u,fmin,best
 end
 
-function detectfolder(root,subj,vis,tri,sz=[];dosave=true)
-	indir = joinpath(root,makedirname(subj,vis,tri))
-	result = (fname = String[], cenrow = Float32[], cencol = Float32[], radius = Float32[], fmin = Float32[], init = [], method = [] )
-	try
-		append!(result.fname,filter(isimg,readdir(indir,join=false)))
-	catch
-		@warn "Unable to read anything for $subj/$vis/$tri."
-	end
+"""
+	detectfolder(dataroot,subject,visit,trial[,siz];dosave=true)
+Perform cornea detection on all the images in a trial folder. If `siz` is given, all images to be resized to match it. If `dosave` is true, both CSV and JLD2 versions of the results are saved to the current directory.
+"""
+function detectfolder(dataroot,subj,vis,tri,sz=[];dosave=true)
+	T = Trial(dataroot,subj,vis,tri)
+	folder = get(T)
+	result = (fname = filenames(T), cenrow = Float32[], cencol = Float32[], radius = Float32[], fmin = Float32[], init = [], method = [] )
 	if isempty(sz)
-		sz = size(load(joinpath(indir,result.fname[1])))
+		sz = size(load(folder[1]))
 	end
-	@showprogress for fname in copy(result.fname)
-		img = load(joinpath(indir,fname))
+	@showprogress for fname in folder
+		img = load(fname)
 
 		# too dark to bother?
 		if count(green.(img) .> 0.25 ) < 0.1*prod(size(img))
@@ -107,7 +107,7 @@ function detectfolder(root,subj,vis,tri,sz=[];dosave=true)
 	end
 
 	if dosave
-		outfile = makefilename(subj,vis,tri)
+		outfile = shortname(T)
 		save("$(outfile).jld2","result",result)
 		CSV.write("$(outfile).csv",result)
 	end
