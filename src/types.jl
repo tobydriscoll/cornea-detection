@@ -1,26 +1,5 @@
-function makedirname(subject,visit,trial)
-	if isa(subject,Number)
-		subject = subject < 10 ? "0$(subject)_" : "$(subject)_"
-	elseif !endswith(subject,'_')
-		subject *= "_"
-	end
-
-	return "$subject/visit$visit/t$trial"
-end
-
-function makefilename(subject,visit,trial)
-	if isa(subject,Number)
-		subject = subject < 10 ? "0$(subject)" : "$(subject)"
-	elseif endswith(subject,'_')
-		subject = subject[1:end-1]
-	end
-
-	return "S$(subject)_V$(visit)_T$trial"
-end
-
 struct Subject
 	dataroot::String
-	resultsroot::String
 	number::Integer
 end
 
@@ -28,16 +7,16 @@ struct Visit
 	subject::Subject
 	number::Integer
 end
+Visit(dataroot,s::Integer,number::Integer) = Visit(Subject(dataroot,s),number)
 
 struct Trial 
 	visit::Visit
 	number::Integer 
 end
+Trial(dataroot,s::Integer,v::Integer,number::Integer) = Trial(Visit(Subject(dataroot,s),v),number)
 
 # Subject
-Subject(dataroot,s::Integer) = Subject(dataroot,".",s)
 dataroot(s::Subject) = s.dataroot
-resultsroot(s::Subject) = s.resultsroot
 String(s::Subject) = s.number < 10 ? "0$(s.number)" : "$(s.number)"
 dirname(s::Subject,full=false) = full ? joinpath(s.dataroot,String(s)*"_") : String(s)*"_"
 fullname(s::Subject) = dirname(s,true)
@@ -48,10 +27,8 @@ end
 numtrials(s::Subject) = sum( numtrials(Visit(s,k)) for k in 1:numvisits(s) )
 
 # Visit
-Visit(dataroot,s::Integer,number::Integer) = Visit(Subject(dataroot,s),number)
 subject(v::Visit) = v.subject
 dataroot(v::Visit) = dataroot(v.subject)
-resultsroot(v::Visit) = resultsroot(v.subject)
 String(v::Visit) = "visit$(v.number)"
 dirname(v::Visit,full=false) = joinpath(dirname(v.subject,full),String(v))
 fullname(v::Visit) = dirname(v,true)
@@ -61,11 +38,9 @@ function numtrials(v::Visit)
 end
 
 # Trial
-Trial(dataroot,s::Integer,v::Integer,number::Integer) = Trial(Visit(Subject(dataroot,s),v),number)
 visit(t::Trial) = t.visit
 subject(t::Trial) = subject(visit(t))
 dataroot(t::Trial) = dataroot(t.visit)
-resultsroot(t::Trial) = resultsroot(t.visit)
 String(t::Trial) = "t$(t.number)"
 dirname(t::Trial,full=false) = joinpath(dirname(t.visit,full),String(t))
 fullname(t::Trial) = dirname(t,true)
@@ -77,7 +52,7 @@ end
 numframes(t::Trial) = count(isimg,readdir(fullname(t)))
 filenames(t::Trial,join=false) = filter(isimg,readdir(fullname(t),join=join))
 
-results(t::Trial) = load(joinpath(resultsroot(t),shortname(t)*".jld2"))["result"] |> DataFrame 
+results(t::Trial) = load(shortname(t)*".jld2")["result"] |> DataFrame 
 summary(t::Trial) = CSV.File(joinpath(dirname(t,true),"summary.csv")) |> DataFrame
 
 # ImageFolder: produce iterator of file names for a given trial

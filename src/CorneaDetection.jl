@@ -5,10 +5,9 @@ using Images,ImageFiltering,ImageTransformations,Interpolations
 using Optim,Statistics,ProgressMeter,StatsBase
 using JLD2,CSV,DataFrames
 
+import Base: dirname, length, isempty, getindex, iterate, get, fullname, summary
 export findpurkinje,detect,detectfolder
-export summarize,getsummary,getresults
-export makedirname,makefilename,makemovie
-import Base: dirname, length, isempty, getindex, iterate, get, fullname
+export summarize,summary,results,makemovie
 export Subject,Visit,Trial
 export dirname,fullname,filenames,shortname,numvisits,numtrials,numframes,summary,results,ImageFolder
 

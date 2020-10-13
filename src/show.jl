@@ -1,13 +1,7 @@
 
-function getsummary(root,subject,visit,trial)
-	fname = makefilename(subject,visit,trial)
-	return load(joinpath(root,makedirname(subject,visit,trial),"summary.jld2"))[fname] |> DataFrame 
-end
-
-function getresults(root,subject,visit,trial)
-	fname = makefilename(subject,visit,trial)
-	return load(joinpath(root,"$(fname).jld2"))["result"] |> DataFrame 
-end
+summary(root,subject,visit,trial) = summary(Trial(root,subject,visit,trial))
+results(root,subject,visit,trial) = results(Trial(root,subject,visit,trial))
+results(subject,visit,trial) = results(Trial(".",subject,visit,trial))
 
 """
 	drawcircle!(img,i,j,r[,trange])
@@ -24,23 +18,23 @@ function drawcircle!(img,i,j,r,trange::AbstractVector=[-π,π];usecolor=RGB(1,0,
 	return img
 end
 
-function makemovie(datadir::String,outname::String,result,sz=(470,706);numframes=Inf)
+function makemovie(T::Trial,result,sz=(470,706);numframes=Inf)
 	imgstack = []
 	circ = sz[1].*[ result.cenrow result.cencol result.radius ]
 	N = length(result.fname)
 	select = 1:max(1,ceil(Int,(N-1)/numframes)):N
+	root = fullname(T)
 	@showprogress for k in select
-		fn = joinpath(datadir,result.fname[k])
+		fn = joinpath(root,result.fname[k])
 		img = imresize(RGB.(load(fn)),sz...)
 		drawcircle!(img,circ[k,:]...)
 		push!(imgstack,img)
 	end
-	encodevideo(outname*".mp4",imgstack,framerate=10)
-	return outname*".mp4"
+	encodevideo(shortname(T)*".mp4",imgstack,framerate=10)
+	return shortname(T)*".mp4"
 end
 
-function makemovie(dataroot::String,subject::Integer,visit::Integer,trial::Integer)
-	fn = makefilename(subject,visit,trial)
-	dn = joinpath(dataroot,makedirname(subject,visit,trial))
-	makemovie(dn,fn,getresults(".",subject,visit,trial))
+function makemovie(dataroot::String,subject::Integer,visit::Integer,trial::Integer,args...)
+	T = Trial(dataroot,subject,visit,trial)
+	makemovie(T,results(T),args...)
 end
