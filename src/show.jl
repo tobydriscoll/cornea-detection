@@ -1,22 +1,3 @@
-function makedirname(subject,visit,trial)
-	if isa(subject,Number)
-		subject = subject < 10 ? "0$(subject)_" : "$(subject)_"
-	elseif !endswith(subject,'_')
-		subject *= "_"
-	end
-
-	return "$subject/visit$visit/t$trial"
-end
-
-function makefilename(subject,visit,trial)
-	if isa(subject,Number)
-		subject = subject < 10 ? "0$(subject)" : "$(subject)"
-	elseif endswith(subject,'_')
-		subject = subject[1:end-1]
-	end
-
-	return "S$(subject)_V$(visit)_T$trial"
-end
 
 function getsummary(root,subject,visit,trial)
 	fname = makefilename(subject,visit,trial)
