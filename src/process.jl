@@ -84,12 +84,12 @@ function detectfolder(dataroot,subj,vis,tri,sz=[];dosave=true)
 	@showprogress for fname in folder
 		img = load(fname)
 
-		# too dark to bother?
-		if count(green.(img) .> 0.25 ) < 0.1*prod(size(img))
-			@info "Skipping $fname."
-			deleteat!(result.fname,length(result.radius)+1)
-			continue
-		end
+		# # too dark to bother?
+		# if count(green.(img) .> 0.25 ) < 0.1*prod(size(img))
+		# 	@info "Skipping $fname."
+		# 	deleteat!(result.fname,length(result.radius)+1)
+		# 	continue
+		# end
 
 		Z,θ,u_init,options = detectiondata(img,sz...)
 		if !isempty(result.radius)
