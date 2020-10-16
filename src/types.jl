@@ -20,11 +20,22 @@ dataroot(s::Subject) = s.dataroot
 String(s::Subject) = s.number < 10 ? "0$(s.number)" : "$(s.number)"
 dirname(s::Subject,full=false) = full ? joinpath(s.dataroot,String(s)*"_") : String(s)*"_"
 fullname(s::Subject) = dirname(s,true)
-function numvisits(s::Subject) 
+function visits(s::Subject) 
+	vis = Visit[]
 	screen = t->startswith(t,"visit") 
-	count(screen,readdir(fullname(s)))
+	contents = filter(screen,readdir(fullname(s)))
+	for v in 1:2
+		newvis = Visit(s,v)
+		if String(newvis) in contents
+			push!(vis,newvis)
+		end
+	end
+	return vis
 end
-numtrials(s::Subject) = sum( numtrials(Visit(s,k)) for k in 1:numvisits(s) )
+numvisits(s::Subject) = length(visits(s))
+trials(s::Subject) = reduce(vcat,trials(v) for v in visits(s))
+numtrials(s::Subject) = sum( numtrials(v) for v in visits(s) )
+length(s::Subject) = sum( numframes(t) for t in trials(s) )
 
 # Visit
 subject(v::Visit) = v.subject
@@ -32,10 +43,20 @@ dataroot(v::Visit) = dataroot(v.subject)
 String(v::Visit) = "visit$(v.number)"
 dirname(v::Visit,full=false) = joinpath(dirname(v.subject,full),String(v))
 fullname(v::Visit) = dirname(v,true)
-function numtrials(v::Visit) 
+function trials(v::Visit) 
+	tri = Trial[]
 	screen = t->startswith(t,"t") 
-	count(screen,readdir(fullname(v)))
+	contents = filter(screen,readdir(fullname(v)))
+	for t in 1:10
+		newtri = Trial(v,t)
+		if String(newtri) in contents 
+			push!(tri,newtri)
+		end
+	end
+	return tri
 end
+numtrials(v::Visit) = length(trials(v))
+length(v::Visit) = sum( numframes(t) for t in trials(v) )
 
 # Trial
 visit(t::Trial) = t.visit
@@ -51,8 +72,9 @@ function shortname(t::Trial)
 end
 numframes(t::Trial) = count(isimg,readdir(fullname(t)))
 filenames(t::Trial,join=false) = filter(isimg,readdir(fullname(t),join=join))
+length(t::Trial) = numframes(t)
 
-results(t::Trial) = load(shortname(t)*".jld2")["result"] |> DataFrame 
+results(t::Trial,dir=".") = load(joinpath(dir,shortname(t)*".jld2"))["result"] |> DataFrame 
 summary(t::Trial) = CSV.File(joinpath(dirname(t,true),"summary.csv")) |> DataFrame
 
 # ImageFolder: produce iterator of file names for a given trial

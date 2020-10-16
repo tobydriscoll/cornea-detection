@@ -8,8 +8,9 @@ using JLD2,CSV,DataFrames
 import Base: dirname, length, isempty, getindex, iterate, get, fullname, summary
 export findpurkinje,detect,detectfolder
 export summarize,summary,results,makemovie
-export Subject,Visit,Trial
-export dirname,fullname,filenames,shortname,numvisits,numtrials,numframes,summary,results,ImageFolder
+export Subject,Visit,Trial,ImageFolder
+export dataroot,dirname,fullname,filenames,shortname
+export numvisits,numtrials,numframes,length,visits,trials,summary,results
 
 include("types.jl")
 include("summarize.jl")
