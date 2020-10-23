@@ -47,3 +47,36 @@ function summarize(root,subj,vis,tri)
 	return summary
 end
 
+function cleanup(T::Trial)
+
+end
+
+function backfill(T::Trial)
+	s = summary(T)
+	resdir = "/Users/driscoll/Dropbox/research/tearfilm/cornea/version4/data"
+	r = rightjoin(results(T,resdir),s,on=:fname)
+	folder = get(T)
+	sz = size(load(folder[1]))
+	@showprogress for (idx,fname) in enumerate(folder)
+		if !ismissing(r.cenrow[idx])
+			continue
+		end
+		img = load(fname)
+		Z,θ,u_init,options = detectiondata(img,sz...)
+		if idx > 1
+			new_ui = sz[1].*(r.cenrow[idx-1],r.cencol[idx-1],r.radius[idx-1])
+			push!(u_init,new_ui)
+		end
+		u,fmin,best = detect(sz,Z,θ,u_init,options)
+		r.cenrow[idx] = u[1]/sz[1]
+		r.cencol[idx] = u[2]/sz[1]
+		r.radius[idx] = u[3]/sz[1]
+		r.fmin[idx] = fmin
+		r.init[idx] = best[1]
+		r.method[idx] = best[2]
+	end
+	outfile = shortname(T)
+	save("$(outfile).jld2","result",r)
+	CSV.write("$(outfile).csv",r)
+	return r
+end
