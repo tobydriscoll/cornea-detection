@@ -12,8 +12,9 @@ Visit(dataroot,s::Integer,number::Integer) = Visit(Subject(dataroot,s),number)
 struct Trial 
 	visit::Visit
 	number::Integer 
+	resultdir::String
 end
-Trial(dataroot,s::Integer,v::Integer,number::Integer) = Trial(Visit(Subject(dataroot,s),v),number)
+Trial(dataroot,s::Integer,v::Integer,number::Integer,resultdir::String=".") = Trial(Visit(Subject(dataroot,s),v),number,resultdir)
 
 # Subject
 dataroot(s::Subject) = s.dataroot
@@ -74,7 +75,7 @@ numframes(t::Trial) = count(isimg,readdir(fullname(t)))
 filenames(t::Trial,join=false) = filter(isimg,readdir(fullname(t),join=join))
 length(t::Trial) = numframes(t)
 
-results(t::Trial,dir=".") = load(joinpath(dir,shortname(t)*".jld2"))["result"] |> DataFrame 
+results(t::Trial,dir=t.resultdir) = load(joinpath(dir,shortname(t)*".jld2"))["result"] |> DataFrame 
 summary(t::Trial) = CSV.File(joinpath(dirname(t,true),"summary.csv")) |> DataFrame
 
 # ImageFolder: produce iterator of file names for a given trial
