@@ -51,6 +51,7 @@ function cleanup(T::Trial)
 
 end
 
+backfill(V::Visit) = foreach(backfill,trials(V))
 function backfill(T::Trial)
 	s = summary(T)
 	resdir = "/Users/driscoll/Dropbox/research/tearfilm/cornea/version4/data"
