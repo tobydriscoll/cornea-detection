@@ -76,7 +76,7 @@ Perform cornea detection on all the images in a trial folder. If `siz` is given,
 """
 function detectfolder(dataroot,subj,vis,tri,sz=[];dosave=true)
 	T = Trial(dataroot,subj,vis,tri)
-	folder = get(T)
+	folder = filenames(T,join=true)
 	result = (fname = filenames(T), cenrow = Float32[], cencol = Float32[], radius = Float32[], fmin = Float32[], init = [], method = [] )
 	if isempty(sz)
 		sz = size(load(folder[1]))

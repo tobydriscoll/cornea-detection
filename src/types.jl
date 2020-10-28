@@ -14,9 +14,10 @@ struct Trial
 	number::Integer 
 	resultdir::String
 end
+Trial(v::Visit,number::Integer) = Trial(v,number,".")
 Trial(dataroot,s::Integer,v::Integer,number::Integer,resultdir::String=".") = Trial(Visit(Subject(dataroot,s),v),number,resultdir)
 
-# Subject
+# Subject methods
 dataroot(s::Subject) = s.dataroot
 String(s::Subject) = s.number < 10 ? "0$(s.number)" : "$(s.number)"
 dirname(s::Subject,full=false) = full ? joinpath(s.dataroot,String(s)*"_") : String(s)*"_"
@@ -38,7 +39,7 @@ trials(s::Subject) = reduce(vcat,trials(v) for v in visits(s))
 numtrials(s::Subject) = sum( numtrials(v) for v in visits(s) )
 length(s::Subject) = sum( numframes(t) for t in trials(s) )
 
-# Visit
+# Visit methods
 subject(v::Visit) = v.subject
 dataroot(v::Visit) = dataroot(v.subject)
 String(v::Visit) = "visit$(v.number)"
@@ -59,7 +60,7 @@ end
 numtrials(v::Visit) = length(trials(v))
 length(v::Visit) = sum( numframes(t) for t in trials(v) )
 
-# Trial
+# Trial methods
 visit(t::Trial) = t.visit
 subject(t::Trial) = subject(visit(t))
 dataroot(t::Trial) = dataroot(t.visit)
@@ -72,25 +73,27 @@ function shortname(t::Trial)
 	"S$(String(s))_V$(v.number)_T$(t.number)"
 end
 numframes(t::Trial) = count(isimg,readdir(fullname(t)))
-filenames(t::Trial,join=false) = filter(isimg,readdir(fullname(t),join=join))
+filenames(t::Trial;join=false) = filter(isimg,readdir(fullname(t),join=join))
 length(t::Trial) = numframes(t)
 
+# Extract results/summary data for a trial
 results(t::Trial,dir=t.resultdir) = load(joinpath(dir,shortname(t)*".jld2"))["result"] |> DataFrame 
 summary(t::Trial) = CSV.File(joinpath(dirname(t,true),"summary.csv")) |> DataFrame
 
-# ImageFolder: produce iterator of file names for a given trial
+# ImageFolder: iterator of images for a given trial
 struct ImageFolder
 	t::Trial
 	file::AbstractVector
 end
 
-ImageFolder(t::Trial) = ImageFolder(t,filenames(t,true))
-get(t::Trial) = ImageFolder(t)
+ImageFolder(t::Trial) = ImageFolder(t,filenames(t,join=true))
+images(t::Trial) = ImageFolder(t)
 ImageFolder(dataroot,s::Integer,v::Integer,t::Integer) = ImageFolder(Trial(dataroot,s,v,t))
-iterate(f::ImageFolder) = isempty(f.file) ? nothing : f.file[1],1
-iterate(f::ImageFolder,state) = state==length(f.file) ? nothing : (f.file[state+1],state+1)
+
+iterate(f::ImageFolder) = isempty(f.file) ? nothing : load(f.file[1]),1
+iterate(f::ImageFolder,state) = state==length(f.file) ? nothing : (load(f.file[state+1]),state+1)
 length(f::ImageFolder) = length(f.file)
 isempty(f::ImageFolder) = isempty(f.file)
 IteratorEltype(ImageFolder) = EltypeUnknown()
-getindex(f::ImageFolder,ind::Integer) = f.file[ind]
+getindex(f::ImageFolder,ind::Integer) = load(f.file[ind])
 getindex(f::ImageFolder,inds) = [getindex(f,i) for i in inds]
