@@ -115,22 +115,35 @@ function detectfolder(dataroot,subj,vis,tri,sz=[];dosave=true)
 	return result
 end
 
+function intensity(T::Trial)
+	s = summary(T)
+	bins = (0.5:31.5)/33
+	intensity = Float64[]
+	for (i,f) in enumerate(s.freqG)
+		distr = parse.(Float64,split(replace(f[2:end-1],","=>" ")))
+		push!(intensity,sum(bins[j]*distr[j] for j in 1:31))
+	end
+	intensity
+end
+
 function finddark(T::Trial)
 	res = outerjoin(summary(T),results(T),on=:fname,makeunique=true)
 	ic,jc,rc = res.cenrow,res.cencol,res.radius
 	ip,jp = res.purkrow,res.purkcol
+	N = length(ip)
 	
-	intensity = res.avgG
+	#intensity = res.avgG
 	nopurk = isnan.(ip)
-	dark = @. nopurk | ( intensity < 0.15 )
-	ct = -1
-	σ = 0
-	while ct != count(dark)
-		ct = count(dark)
-		bright = intensity[.!dark]
+	q = intensity(T)
+	dark = @. ( q < 0.15 ) | ( nopurk & (q < 0.25) )
+	 ct = -1
+	 σ = 0
+	 while ct != count(dark)
+	 	ct = count(dark)
+		bright = q[.!dark]
 		μ,σ = mean(bright),std(bright)
-		dark = @. dark | (intensity < μ - 3σ)
-	end
+		dark = @. dark | (q < μ - 2σ)
+	 end
 
 	# N = length(dark)
 	# Δ = diff(intensity)
