@@ -61,7 +61,7 @@ function detect(sz,Z,θ,u_init,options)
 	u,fmin,best = [],Inf,[]
 	for ui in u_init, opt in options
 		unew,fnew = fitcircle(Z,sz...,ui...,θ,options=opt)
-		@debug "latest: $fnew,$ui,$opt"
+		@debug "latest: $unew,$fnew,$ui,$opt"
 		if fnew < fmin 
 			u,fmin = unew,fnew
 			best = (ui,opt)
@@ -71,26 +71,16 @@ function detect(sz,Z,θ,u_init,options)
 end
 
 """
-	detectfolder(dataroot,subject,visit,trial[,siz];dosave=true)
-Perform cornea detection on all the images in a trial folder. If `siz` is given, all images to be resized to match it. If `dosave` is true, both CSV and JLD2 versions of the results are saved to the current directory.
+	detect(files[,size])
+Perform cornea detection on all the image files named in the vector `files`. If `size` is given, all images to be resized to match it. 
 """
-function detectfolder(dataroot,subj,vis,tri,sz=[];dosave=true)
-	T = Trial(dataroot,subj,vis,tri)
-	folder = filenames(T,join=true)
-	result = (fname = filenames(T), cenrow = Float32[], cencol = Float32[], radius = Float32[], fmin = Float32[], init = [], method = [] )
+function detect(folder::AbstractVector{String},sz=[])
+	result = (cenrow = Float32[], cencol = Float32[], radius = Float32[], fmin = Float32[], init = [], method = [] )
 	if isempty(sz)
 		sz = size(load(folder[1]))
 	end
 	@showprogress for fname in folder
 		img = load(fname)
-
-		# # too dark to bother?
-		# if count(green.(img) .> 0.25 ) < 0.1*prod(size(img))
-		# 	@info "Skipping $fname."
-		# 	deleteat!(result.fname,length(result.radius)+1)
-		# 	continue
-		# end
-
 		Z,θ,u_init,options = detectiondata(img,sz...)
 		if !isempty(result.radius)
 			new_ui = sz[1].*(result.cenrow[end],result.cencol[end],result.radius[end])
@@ -105,63 +95,6 @@ function detectfolder(dataroot,subj,vis,tri,sz=[];dosave=true)
 		push!(result.init,best[1])
 		push!(result.method,best[2])		
 	end
-
-	if dosave
-		outfile = shortname(T)
-		save("$(outfile).jld2","result",result)
-		CSV.write("$(outfile).csv",result)
-	end
-
 	return result
-end
-
-function intensity(T::Trial)
-	s = summary(T)
-	bins = (0.5:31.5)/33
-	intensity = Float64[]
-	for (i,f) in enumerate(s.freqG)
-		distr = parse.(Float64,split(replace(f[2:end-1],","=>" ")))
-		push!(intensity,sum(bins[j]*distr[j] for j in 1:31))
-	end
-	intensity
-end
-
-function finddark(T::Trial)
-	res = outerjoin(summary(T),results(T),on=:fname,makeunique=true)
-	ic,jc,rc = res.cenrow,res.cencol,res.radius
-	ip,jp = res.purkrow,res.purkcol
-	N = length(ip)
-	
-	#intensity = res.avgG
-	nopurk = isnan.(ip)
-	q = intensity(T)
-	dark = @. ( q < 0.15 ) | ( nopurk & (q < 0.25) )
-	 ct = -1
-	 σ = 0
-	 while ct != count(dark)
-	 	ct = count(dark)
-		bright = q[.!dark]
-		μ,σ = mean(bright),std(bright)
-		dark = @. dark | (q < μ - 2σ)
-	 end
-
-	# N = length(dark)
-	# Δ = diff(intensity)
-	# # for n in 1:N
-	# # 	if n < N
-	# # 		dark[n] |= (dark[n+1] & (intensity[n] < μ-σ))			
-	# # 	end
-	# # 	if n > 1
-	# # 		dark[n] |= (dark[n-1] & (intensity[n] < μ-σ))
-	# # 	end
-	# # end 
-	# dark[1] |= dark[2]
-	# dark[N] |= dark[N-1]
-	# # for n in 2:N-1
-	# # 	s = intensity[n+1] - intensity[n-1]
-	# # 	dark[n] |= ( dark[n+1] & (s < -2σ) ) || ( dark[n-1] & (s > 2σ) )
-	# end
-	return dark
-
 end
 
