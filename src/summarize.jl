@@ -1,3 +1,9 @@
+"""
+    resize(files,dest,size)
+Resize all the images in the image files named in the string vector `files`, using 2-vector `size` for [height,width]. Rewrite them as PNG files in directory `dest`. 
+
+Also computes the same data as `summary` and returns a named tuple of the result.
+"""
 function resize(folder::AbstractVector{String},dest,sz)
 	N = length(folder)
 	summary = ( 
@@ -15,18 +21,29 @@ function resize(folder::AbstractVector{String},dest,sz)
 		pngname = splitext(basename(fname))[1]*".png"
 		save(joinpath(dest,pngname),X)
 		update_summary!(summary,idx,X)
-	
 	end
 	return summary
 end
 
+"""
+    summarize(files)
+Get summary data for all the images in the image files named in the string vector `files`. Returns named tuple with fields:
+
+* `size` [height,width] in pixels
+* `purkrow` row index of the purkinje (float), `NaN` if none found
+* `purkcol` column index of the purkinje (float), `NaN` if none found
+* `avgG` average intensity in the green channel
+* `freqR` histogram bin values for intensity in the red channel
+* `freqG` histogram bin values for intensity in the green channel
+* `freqB` histogram bin values for intensity in the blue channel
+"""
 function summarize(folder::AbstractVector{String})
 	N = length(folder)
 	summary = ( 
 		size = fill([0,0],N), 
-		avgG = zeros(N), 
 		purkrow = fill(NaN,N), 
 		purkcol = fill(NaN,N), 
+		avgG = zeros(N), 
 		freqR = fill([NaN],N), 
 		freqG = fill([NaN],N),
 		freqB = fill([NaN],N)
@@ -37,6 +54,7 @@ function summarize(folder::AbstractVector{String})
 	return summary
 end
 
+# utility for summary
 function update_summary!(summary,idx,X)
 	sz = size(X)
 	summary.size[idx] = [sz...]
@@ -60,102 +78,65 @@ function update_summary!(summary,idx,X)
 
 end
 
-
-function intensity(T::Trial)
-	s = summary(T)
+"""
+	intensity(data)
+Return a vector of an intensity measure in the green channel of each image of a movie. The input should be a DataFrame of the data returned by `summary`.
+"""
+function intensity(data::DataFrame)
+	# Construct an average from the intensity histogram, but leaving out the last bin. 
+	# The reason is that most of the pixels in that bin are in the sclera, and the 
+	# average value becomes sensitive to small motions of the eyelids. 
+	# Might be better to use a median...
 	bins = (0.5:31.5)/33
 	intensity = Float64[]
-	for (i,distr) in enumerate(s.freqG)
-		# data might be in string form if it was loaded from CSV
+	for (i,distr) in enumerate(data.freqG)
+		# data might be in string form, if it was loaded from CSV–so parse it
 		if !(eltype(distr) <: Number)
 			distr = parse.(Float64,split(replace(distr[2:end-1],","=>" ")))
 		end
 		push!(intensity,sum(bins[j]*distr[j] for j in 1:31))
 	end
-	intensity
+	return intensity
 end
 
-function finddark(T::Trial)
-	res = outerjoin(summary(T),results(T),on=:fname,makeunique=true)
-	ip,jp = res.purkrow,res.purkcol
+"""
+	darkframes(data)
+Return a boolean vector indicating which images in a folder are likely too dark to be used. The input should be a DataFrame of the data returned by `summary`.
+"""
+function darkframes(data::DataFrame)
+	q = intensity(data)
+	ip,jp = data.purkrow,data.purkcol
 	nopurk = isnan.(ip)
-	q = intensity(T)
-	dark = @. ( q < 0.15 ) | ( nopurk & (q < 0.25) )
+	isdark = @. ( q < 0.15 ) | ( nopurk & (q < 0.25) )
+
+	# Some "bright" frames might still need to get marked dark, if they are a good 
+	# bit below the "typical bright" frame. Iterate until this stabilizes.
 	ct = 3
-	while ct < count(dark)
-		ct = count(dark)
-		bright = q[.!dark]
-		μ = median(bright)
-#		if count(dark) > 3
-		σ = 0.15*(μ - median(q[dark]))
-#		end
-		dark = @. dark | (q < μ - 2σ)
+	while ct < count(isdark)
+		ct = count(isdark)
+		μ = median(q[.!isdark])
+		gap = 0.3*(μ - median(q[isdark]))
+		isdark = @. isdark | (q < μ - gap)
 	end
-
-	# N = length(dark)
-	# Δ = diff(intensity)
-	# # for n in 1:N
-	# # 	if n < N
-	# # 		dark[n] |= (dark[n+1] & (intensity[n] < μ-σ))			
-	# # 	end
-	# # 	if n > 1
-	# # 		dark[n] |= (dark[n-1] & (intensity[n] < μ-σ))
-	# # 	end
-	# # end 
-	# dark[1] |= dark[2]
-	# dark[N] |= dark[N-1]
-	# # for n in 2:N-1
-	# # 	s = intensity[n+1] - intensity[n-1]
-	# # 	dark[n] |= ( dark[n+1] & (s < -2σ) ) || ( dark[n-1] & (s > 2σ) )
-	# end
-	return dark
-
+	return isdark
 end
 
-function goodframes(T::Trial)
-	isdark = CorneaDetection.finddark(T);
-
+"""
+	goodframes(data)
+Return a boolean vector indicating which images in a folder appear to be in the first illuminated interblink period. The input should be a DataFrame of the data returned by `summary`.
+"""
+function goodframes(data::DataFrame)
+	isdark = darkframes(data)
 	N = length(isdark)
+	# discard where at least 2 frames within each window of three are marked as dark
 	w = [ sum(isdark[i:i+2]) for i in 1:N-2 ]
-	#@. isdark[2:N-1] |= (isdark[1:N-2] & isdark[3:N])  # peer pressure
-	#fd = findall(isdark)
 	fd = findall(w.>1)
+
+	# Look for a jump in the indices of dark frames. The period within that jump is our 
+	# target.
 	idx = findfirst(diff(fd).>2)
 	!isnothing(idx) && (isdark[1:fd[idx]] .= true)
 	!isnothing(idx) && (isdark[fd[idx+1]:end] .= true)
 
 	return .!isdark
-end
-
-
-backfill(V::Visit) = foreach(backfill,trials(V))
-function backfill(T::Trial)
-	s = summary(T)
-	resdir = "/Users/driscoll/Dropbox/research/tearfilm/cornea/version4/data"
-	r = rightjoin(results(T,resdir),s,on=:fname)
-	sort!(r,:fname)
-	folder = filenames(T,join=true)
-	sz = size(load(folder[1]))
-	@showprogress for (idx,fname) in enumerate(folder)
-		if !ismissing(r.cenrow[idx])
-			continue
-		end
-		img = load(fname)
-		Z,θ,u_init,options = detectiondata(img,sz...)
-		if idx > 1
-			new_ui = sz[1].*(r.cenrow[idx-1],r.cencol[idx-1],r.radius[idx-1])
-			push!(u_init,new_ui)
-		end
-		u,fmin,best = detect(sz,Z,θ,u_init,options)
-		r.cenrow[idx] = u[1]/sz[1]
-		r.cencol[idx] = u[2]/sz[1]
-		r.radius[idx] = u[3]/sz[1]
-		r.fmin[idx] = fmin
-		r.init[idx] = best[1]
-		r.method[idx] = best[2]
-	end
-	outfile = shortname(T)
-	save("$(outfile).jld2","result",r)
-	CSV.write("$(outfile).csv",r)
-	return r
 end

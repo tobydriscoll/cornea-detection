@@ -1,3 +1,7 @@
+# All the types and methods specific to our data storage hierarchy are here. The root of the image 
+# data is assumed to have subdirectories in the form "SS_/visitV/tT", where SS is a zero-padded 
+# subject number, V is a visit number, and T is a trial number.
+
 struct Subject
 	dataroot::String
 	number::Integer
@@ -89,7 +93,7 @@ filenames(t::Trial;join=false) = filter(isimg,readdir(fullname(t),join=join))
 length(t::Trial) = numframes(t)
 
 #
-# Versions of resize/summarize/detect that work with trials
+# Versions of key methods that work with trials
 #
 
 function resize(T::Trial,destroot::String,sz=(2824÷2,4240÷2))
@@ -148,6 +152,14 @@ function makemovie(T::Trial,sz=(470,706);numframes=Inf)
 	encodevideo(shortname(T)*".mp4",imgstack,framerate=10)
 	return shortname(T)*".mp4"
 end
+
+#
+# Utilities
+#
+
+intensity(T::Trial) = intensity(summary(T))
+darkframes(T::Trial) = darkframes(summary(T))
+goodframes(T::Trial) = goodframes(summary(T))
 
 #
 # ImageFolder: iterator of images for a given trial

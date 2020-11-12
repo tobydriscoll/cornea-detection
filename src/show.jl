@@ -1,4 +1,3 @@
-
 """
 	drawcircle!(img,i,j,r[,trange])
 Modifies the image to superimpose a circle of specified center and radius. If `trange` is given, it's a 2-vector defining the range of angles to be used, measured ccw from "straight down" in the usual image visualization (i.e., vertically flipped).
@@ -14,6 +13,10 @@ function drawcircle!(img,i,j,r,trange::AbstractVector=[-π,π];usecolor=RGB(1,0,
 	return img
 end
 
+"""
+	makemovie(files,result,size;numframes=Inf)
+Make a movie to show the detected cornea on each image named in the string vector `files`, using the detection results in `result` and the given `size` as [height,width]. If a value is given for `numframes`, frames will be skipped to bring the total frame count to be no greater than that value. Returns a vector of images.
+"""
 function makemovie(folder::AbstractVector{String},result,sz;numframes=Inf)
 	imgstack = []
 	circ = sz[1].*[ result.cenrow result.cencol result.radius ]

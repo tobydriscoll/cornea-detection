@@ -51,12 +51,7 @@ function detectiondata(img,m,n)
 	return Z,θ,u_init,options
 end
 
-"Detect the cornea in an image using default choices."
-function detect(img::AbstractMatrix{T} where T <: AbstractRGB,sz=size(img))
-	detect(sz,detectiondata(img,sz...)...)
-end
 
-"Detect the cornea in an image using provided choices."
 function detect(sz,Z,θ,u_init,options)
 	u,fmin,best = [],Inf,[]
 	for ui in u_init, opt in options
@@ -70,9 +65,22 @@ function detect(sz,Z,θ,u_init,options)
 	return u,fmin,best
 end
 
+function detect(img::AbstractMatrix{T} where T <: AbstractRGB,sz=size(img))
+	detect(sz,detectiondata(img,sz...)...)
+end
+
 """
 	detect(files[,size])
-Perform cornea detection on all the image files named in the vector `files`. If `size` is given, all images to be resized to match it. 
+	detect(img[,size])
+Perform cornea detection on all the image files named in the vector `files`, or on the image `img`. If `size` is given, all images to be resized to match it. 
+
+Returns a named tuple with the following fields:
+* `cenrow` row location of the cornea center, normalized by the image height
+* `cencol` column location of the cornea center, normalized by the image height
+* `radius` radius of the cornea center, normalized by the image height
+* `fmin` optimized value of the optimization objective function
+* `init` initial condition that led to the optimal result
+* `method` info about the optimizer that got the optimal result
 """
 function detect(folder::AbstractVector{String},sz=[])
 	result = (cenrow = Float32[], cencol = Float32[], radius = Float32[], fmin = Float32[], init = [], method = [] )
