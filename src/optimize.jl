@@ -6,7 +6,7 @@ function findpurkinje(img,thresh=0.5)
 	B = blue.(img)
 	idx = findall(B .> thresh*maximum(B))
 	m,n = size(img)
-	keep = i -> (5 < i[1] < 0.66m) && (5 < i[2] < 0.5n)
+	keep = i -> (5 < i[1] < 0.66m) && (5 < i[2] < 0.66n)
 	return filter(keep,idx)
 end
 
@@ -96,7 +96,7 @@ Find the circle that optimizes the total r-difference criterion, given initial v
 function fitcircle(imgfun,m,n,i0,j0,r0,θ=[-π,π];options=missing)
 	# don't let the center get too close to the edges, or the radius get too small or too close to the nearest edge
 	function penalty(u)
-		f = (x,lo,hi) -> -log( max(1e-4,(x-lo)*(hi-x)) )
+		f = (x,lo,hi) -> -log( max(1e-12,(x-lo)*(hi-x)) )
 		i,j,r = u
 		#dx = minimum([i-1,m-i])
 		#dy = minimum([j-1,n-j])
