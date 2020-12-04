@@ -43,7 +43,7 @@ end
 	findpurkinje(img,thresh=0.5)
 Return indices of pixels believed to be in the purkinje of the image `img`. Decrease `thresh` toward zero to include more pixels, or increase to one to include fewer. Returns a vector of `CartesianIndex`.
 """
-function findpurkinje(img::AbstractMatrix{T} where T<:AbsrtactRGB,thresh=0.5)
+function findpurkinje(img::AbstractMatrix{T} where T<:Colorant,thresh=0.5)
 	B = blue.(img)
 	idx = findall(B .> thresh*maximum(B))
 	m,n = size(img)

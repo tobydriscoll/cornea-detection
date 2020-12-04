@@ -6,7 +6,7 @@ function initvals(X::AbstractMatrix{T} where T <: AbstractRGB,thresh=0.5)
 	m,n = size(X)
 	purk = findpurkinje(X,0.4)
 	
-	# vertically, use the purkinje
+	# vertically, use the purkinje if possible
 	i_c = length(purk) > 50 ? median(i[1] for i in purk) : m/2
 
 	# horizontal guess 1: use the sclera's brightness
@@ -28,10 +28,11 @@ function initvals(X::AbstractMatrix{T} where T <: AbstractRGB,thresh=0.5)
 	@debug "init1 = ($i_c,$j_c,$r_c)"
 	guess = r_c > m/4 ? [(i_c,j_c,r_c)] : []
 
-	# horizontal guess 2: use the purkinje heuristically
+	# horizontal guess 2: use the purkinje location heuristically
 	if length(purk) > 50
 		# purkinje is roughly 1/3 of the way across the cornea
-		r_c = 0.75*abs(jright - median(i[2] for i in purk))
+		j_p = median(i[2] for i in purk)
+		r_c = (jright - j_p)/(1-PURKINJE_LOCATION)
 		j_c = jright - r_c
 		@debug "init2 = ($i_c,$j_c,$r_c)"
 		push!(guess,(i_c,j_c,r_c))
@@ -65,10 +66,9 @@ function fitcircle(imgfun,m,n,i0,j0,r0,θ=[-π,π];options=missing)
 	function penalty(u)
 		f = (x,lo,hi) -> -log( max(1e-12,(x-lo)*(hi-x)) )
 		i,j,r = u
-		#dx = minimum([i-1,m-i])
-		#dy = minimum([j-1,n-j])
-		#return f(i/m,0.05,0.95) + f(j/n,0.05,0.95) + f(r/m,0.25,min(dx,dy)/m)
-		return f(i/m,0.05,0.95) + f(j/n,0.05,0.95) + f(r/m,0.25,0.9)
+		bc = BOUNDS_COORD
+		br = BOUNDS_RADIUS
+		return f(i/m,bc...) + f(j/n,bc...) + f(r/m,br...)
 	end
 	
 	if length(θ)==2  # given a range
@@ -84,24 +84,10 @@ function fitcircle(imgfun,m,n,i0,j0,r0,θ=[-π,π];options=missing)
 			f_tol = 1e-8
 		)
 	end
-	uinit = [i0,j0,r0]
-	lower = [0.25m,0.25n,0.25m]
-	upper = [0.75m,0.75n,0.6m]
-	#res = optimize(objective,lower,upper,uinit,Fminbox(BFGS()))
-	res = optimize(objective,uinit;options...)
-	#println(res.minimum)
+	res = optimize(objective,[i0,j0,r0];options...)
 	if !Optim.converged(res)
-		#@warn "Did not converge"
+		@warn "Optimization did not converge"
 		#show(res)
 	end
 	return res.minimizer,res.minimum
-end
-
-# apply detection with some default choices
-function fitcircle(img)
-	m,n = size(img)
-	X = imfilter(green.(img),KernelFactors.gaussian((m/80,m/80)))
-	Z = interpimage(X)
-	u_init = initvals(X)
-	fitcircle(Z,m,n,u_init[1]...,π*[-2/3,2/3])
 end

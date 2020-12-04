@@ -13,6 +13,7 @@ export dataroot,dirname,fullname,filenames,shortname
 export numvisits,numtrials,numframes,length,visits,trials,summary,results
 
 include("utils.jl")
+include("parameters.jl")
 include("summarize.jl")
 include("optimize.jl")
 include("detect.jl")
