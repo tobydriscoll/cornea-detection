@@ -12,6 +12,7 @@ export Subject,Visit,Trial,subject,visit,trial,ImageFolder,images
 export dataroot,dirname,fullname,filenames,shortname
 export numvisits,numtrials,numframes,length,visits,trials,summary,results
 
+include("utils.jl")
 include("summarize.jl")
 include("optimize.jl")
 include("detect.jl")

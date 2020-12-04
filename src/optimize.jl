@@ -1,37 +1,4 @@
 """
-	findpurkinje(img,thresh=0.5)
-Return indices of pixels believed to be in the purkinje of the image `img`. Decrease `thresh` toward zero to include more pixels, or increase to one to include fewer. Returns a vector of `CartesianIndex`.
-"""
-function findpurkinje(img,thresh=0.5)
-	B = blue.(img)
-	idx = findall(B .> thresh*maximum(B))
-	m,n = size(img)
-	keep = i -> (5 < i[1] < 0.66m) && (5 < i[2] < 0.66n)
-	return filter(keep,idx)
-end
-
-"""
-	findpeaks(index,sz,dim)
-Look for peaks in the distribution of a vector `index` of indexes. Tuple `sz` is the size of the image that the indexes are taken from, and `dim` is the dimension (1=rows,2=columns) to operate in. Returns a pair of real values at the peaks of the distributions in the two halves of the range of the index.
-"""
-function findpeaks(idx,sz,dim)
-	# look for the peaks in a distribution of indices 
-	vals = getindex.(idx,dim)
-
-	edges = LinRange(1,sz[dim]+1,101)
-	hist = fit(Histogram,vals,edges)
-	w = hist.weights
-
-	## search left/right sides separately 
-	k = argmax(w[1:50])
-	jleft = mean(edges[k:k+1])
-	k = argmax(w[51:end])
-	jright = mean(edges[50+k:50+k+1])
-
-	return jleft,jright
-end
-
-"""
 	initvals(img,thresh=0.5)
 Try to find good initial guesses for the cornea position in image `img`, which should be full color. The `thresh` parameter is the fraction of the max in the green channel intensity that a pixel should have to be considered part of the sclera. Returns a vector of zero to two tuples of (center_i,center_j,radius)
 """ 
@@ -64,7 +31,7 @@ function initvals(X::AbstractMatrix{T} where T <: AbstractRGB,thresh=0.5)
 	# horizontal guess 2: use the purkinje heuristically
 	if length(purk) > 50
 		# purkinje is roughly 1/3 of the way across the cornea
-		r_c = 0.75(jright - median(i[2] for i in purk))
+		r_c = 0.75*abs(jright - median(i[2] for i in purk))
 		j_c = jright - r_c
 		@debug "init2 = ($i_c,$j_c,$r_c)"
 		push!(guess,(i_c,j_c,r_c))
@@ -101,7 +68,7 @@ function fitcircle(imgfun,m,n,i0,j0,r0,θ=[-π,π];options=missing)
 		#dx = minimum([i-1,m-i])
 		#dy = minimum([j-1,n-j])
 		#return f(i/m,0.05,0.95) + f(j/n,0.05,0.95) + f(r/m,0.25,min(dx,dy)/m)
-		return f(i/m,0.05,0.95) + f(j/n,0.05,0.95) + f(r/m,0.25,0.6)
+		return f(i/m,0.05,0.95) + f(j/n,0.05,0.95) + f(r/m,0.25,0.9)
 	end
 	
 	if length(θ)==2  # given a range
