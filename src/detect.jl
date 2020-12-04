@@ -31,7 +31,10 @@ function detectiondata(img,m,n)
 	
 	# optimization initialization
 	u_init = [ (m/size(img,1)).*i for i in initvals(img) ]
-	push!(u_init, (m/2.,n/2.,m/2.7))
+	push!(u_init, (m/2.,n/2.,0.37m))
+	push!(u_init, (m/2.,n/2.,0.6m))
+	push!(u_init, (0.5m,0.65n,0.4m))
+	push!(u_init, (0.5m,0.35n,0.4m))
 
 	# try to screen out the purkinje and eyelid lines
 	X = imresize(img,m,n)
