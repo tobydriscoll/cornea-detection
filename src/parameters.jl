@@ -18,6 +18,9 @@ INITIALIZATION(m,n) =  [(m/2.,n/2.,0.37m),
 						(m/2.,n/2.,0.6m),
 						(0.5m,0.65n,0.4m),
 						(0.5m,0.35n,0.4m),
+						(0.5m,0.5n,0.9m),
+						(0.35m,0.5n,0.5m),
+						(0.65m,0.5n,0.5m),
 ]
 
 # The image is blurred with a gaussian having standard deviation equal to m/BLUR_WIDTH, where m is the row size.
