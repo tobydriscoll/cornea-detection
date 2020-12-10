@@ -4,7 +4,7 @@ Try to find good initial guesses for the cornea position in image `img`, which s
 """ 
 function initvals(X::AbstractMatrix{T} where T <: AbstractRGB,thresh=0.5)
 	m,n = size(X)
-	purk = findpurkinje(X,0.4)
+	purk = findpurkinje(X,rectangle=true)
 	
 	# vertically, use the purkinje if possible
 	i_c = length(purk) > 50 ? median(i[1] for i in purk) : m/2
@@ -26,7 +26,7 @@ function initvals(X::AbstractMatrix{T} where T <: AbstractRGB,thresh=0.5)
 
 	## reject if the radius is unrealistic
 	@debug "init1 = ($i_c,$j_c,$r_c)"
-	guess = r_c > m/4 ? [(i_c,j_c,r_c)] : []
+	guess = BOUNDS_RADIUS[1] < r_c/m < BOUNDS_RADIUS[2] ? [(i_c,j_c,r_c)] : []
 
 	# horizontal guess 2: use the purkinje location heuristically
 	if length(purk) > 50

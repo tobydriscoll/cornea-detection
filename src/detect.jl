@@ -32,8 +32,25 @@ function detectiondata(img,m,n)
 	u_init = [ (m/size(img,1)).*i for i in initvals(img) ]  # "smart"
 	append!(u_init,INITIALIZATION(size(img)...))            # dumb
 
-	X = imresize(img,m,n)
-	G,B = green.(X),blue.(X)
+	G = green.(X)
+
+	# try to screen out the eyelid lines, using bright values as the indicator
+	C = blue.(X)
+	Cmax = mapwindow(maximum,C,(15,15))  # windowed max
+	thresh = 0.75*maximum(C)
+	G[@. (Cmax > thresh) & (G > 0.25) ] .= 0.33
+	# for i in 1:m, j in 1:n 
+	# 	if (Cmax[i,j] > thresh) && (G[i,j] > 0.25)
+	# 		G[i,j] = 0.33
+	# 	end
+	# end
+	# Screen out purkinje, using a generous overestimate
+	iran,jran = findpurkinje(X,rectangle=true).indices
+	h,w = (iran[end]-iran[1],jran[end]-jran[1])
+	cen = round.(Int,(median(iran),median(jran)))
+	rows = clamp.(cen[1]-h:cen[1]+h,1,m)
+	cols = clamp.(cen[2]-w:cen[2]+w,1,n)
+	G[rows,cols] .= .3
 
 	# try to screen out the purkinje and eyelid lines, using bright blue channel values as the indicator
 	Bmax = mapwindow(maximum,B,(15,15))  # windowed max
