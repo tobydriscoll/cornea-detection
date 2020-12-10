@@ -59,8 +59,8 @@ function update_summary!(summary,idx,X)
 	sz = size(X)
 	summary.size[idx] = [sz...]
 	
-	purk = findpurkinje(X,0.65)
-	if length(purk) > 40
+	purk = findpurkinje(X,0.6)
+	if length(purk) > 50
 		summary.purkrow[idx] = median(i[1] for i in purk)
 		summary.purkcol[idx] = median(i[2] for i in purk)
 	end

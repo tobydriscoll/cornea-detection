@@ -21,7 +21,11 @@ function detectiondata(img,m,n)
 		select[ rng[1] .<= θ .<= rng[2] ] .= true
 	end
 	θ = θ[select]
-	
+	# θ = Float64[] 
+	# for rng in DETECTION_ANGLES
+	# 	append!(θ,LinRange(rng...,200))
+	# end	
+
 	# optimization methods
 	options = ( 
 		(method = NewtonTrustRegion(),x_tol = 5e-2,f_tol = 1e-6),
@@ -29,8 +33,10 @@ function detectiondata(img,m,n)
 	)
 	
 	# optimization initializations
-	u_init = [ (m/size(img,1)).*i for i in initvals(img) ]  # "smart"
-	append!(u_init,INITIALIZATION(size(img)...))            # dumb
+	X = imresize(img,m,n)
+	u_init = [ (m/size(X,1)).*i for i in initvals(X) ]  # "smart"
+	#append!(u_init,[ (m/size(img,1)).*i for i in initvals(img,.3) ])  # "smart", dark
+	append!(u_init,INITIALIZATION(m,n))            # dumb
 
 	G = green.(X)
 
@@ -52,14 +58,6 @@ function detectiondata(img,m,n)
 	cols = clamp.(cen[2]-w:cen[2]+w,1,n)
 	G[rows,cols] .= .3
 
-	# try to screen out the purkinje and eyelid lines, using bright blue channel values as the indicator
-	Bmax = mapwindow(maximum,B,(15,15))  # windowed max
-	maxB = maximum(B)
-	for i in 1:m, j in 1:n 
-		if (Bmax[i,j] > 0.6*maxB) && G[i,j] > 0.25
-			G[i,j] = 0.33
-		end
-	end
 	
 	# smooth and interpolate green channel
 	ker = KernelFactors.gaussian((m/BLUR_WIDTH,m/BLUR_WIDTH))
