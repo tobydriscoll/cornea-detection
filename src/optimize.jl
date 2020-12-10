@@ -30,7 +30,6 @@ function initvals(X::AbstractMatrix{T} where T <: AbstractRGB,thresh=0.5)
 
 	# horizontal guess 2: use the purkinje location heuristically
 	if length(purk) > 50
-		# purkinje is roughly 1/3 of the way across the cornea
 		j_p = median(i[2] for i in purk)
 		r_c = (jright - j_p)/(1-PURKINJE_LOCATION)
 		j_c = jright - r_c

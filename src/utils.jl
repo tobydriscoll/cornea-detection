@@ -1,3 +1,4 @@
+# Find the largest possible axes-aligned rectangle of true values within an array.
 function largest_rect(X::AbstractArray{Bool})
 	m,n = size(X)
 	H = count.(X[1,:])
@@ -18,6 +19,7 @@ function largest_rect(X::AbstractArray{Bool})
 
 end
 
+# Find the largest rectangle underneath a histogram-count vector.
 function largest_rect(x::AbstractVector{T} where T <: Number)
     maxarea = 0
     x = [-1;x;-1]
@@ -39,23 +41,73 @@ function largest_rect(x::AbstractVector{T} where T <: Number)
 	return idx,height,maxarea
 end
 
+# Grow a rectangular region to include all the adjacent pixels with similar value. Smaller threshold means stricter check.
+function grow_rectangle(X::AbstractMatrix,irange,jrange,thresh=0.1)
+	m,n = size(X)
+	region = vec(Array( CartesianIndices((irange,jrange)) ))
+	ifirst,ilast = irange[[1,end]]
+	jfirst,jlast = jrange[[1,end]]
+	avg = mean(X[region])  
+	for kk = 1:100
+		ifirst,ilast = max(1,ifirst-1),min(m,ilast+1)
+		jfirst,jlast = max(1,jfirst-1),min(n,jlast+1)
+		newpts = setdiff(CartesianIndices((ifirst:ilast,jfirst:jlast)),region)
+		add = @. abs(X[newpts]-avg) < thresh
+		#@debug "number added = $(count(add))"
+		if count(add)==0
+			break
+		end
+		union!(region,newpts[add])
+		avg = mean(X[region])
+	end
+	return region
+end
+
 """
 	findpurkinje(img,thresh=0.5)
 Return indices of pixels believed to be in the purkinje of the image `img`. Decrease `thresh` toward zero to include more pixels, or increase to one to include fewer. Returns a vector of `CartesianIndex`.
 """
-function findpurkinje(img::AbstractMatrix{T} where T<:Colorant,thresh=0.5)
-	B = blue.(img)
-	idx = findall(B .> thresh*maximum(B))
-	m,n = size(img)
-	keep = i -> (5 < i[1] < 0.66m) && (5 < i[2] < 0.66n)
-	return filter(keep,idx)
+function findpurkinje(img::AbstractMatrix{T} where T<:Colorant,thresh=0.5;channel=PURKINJE_CHANNEL,rectangle=false)
+	# want to use full color for growing the rectangle
+	idx = findpurkinje(channel.(img),thresh,rectangle=true)
+	return rectangle ? idx : grow_rectangle(img,idx.indices...,.65)
 end
 
-function findpurkinje(X::AbstractMatrix{T} where T<:Number,thresh=0.5)
-	idx = findall(X .> thresh*maximum(X))
-	m,n = size(img)
-	keep = i -> (5 < i[1] < 0.66m) && (5 < i[2] < 0.66n)
-	return filter(keep,idx)
+function findpurkinje(X::AbstractMatrix{T} where T<:Number,thresh=0.5;rectangle=false)
+	m,n = size(X)
+	θ,area = 0.95,0
+	iran = jran = cen = NaN
+	B = X.>θ
+	while θ >= thresh
+		iran,jran,area = largest_rect(B)
+		@debug "iran = $iran, jran = $jran"
+		# If area is too small, there aren't enough pixels at this brightness.
+		if area < m*n/2000 
+			θ -= 0.05
+			B = X.>θ
+			@debug "θ = $θ"
+		else
+			h,w = (iran[end]-iran[1],jran[end]-jran[1])
+			# Must have appropriate aspect ratio. Bright lines at eyelids can give short, skinny rectangles.
+			if h > 0.8w 
+				# Must have contrast with neighboring pixels.
+				cen = round.(Int,(median(iran),median(jran)))
+				# Expand to larger box
+				rows = clamp.(cen[1]-h:cen[1]+h,1,m)
+				cols = clamp.(cen[2]-w:cen[2]+w,1,n)
+				inner = sum(X[iran,jran])
+				outer = sum(X[rows,cols]) - inner 
+				@debug "inner = $inner, outer = $outer"
+				if inner/area - outer/((2h+1)*(2w+1)-area) > 0.25
+					# we've got it
+					break
+				end
+			end
+			# Remove this region from consideration.
+			B[iran,jran] .= false
+		end
+	end
+	return rectangle ? CartesianIndices((iran,jran)) : grow_rectangle(X,iran,jran,.2)
 end
 
 """
