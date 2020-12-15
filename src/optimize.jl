@@ -1,10 +1,15 @@
+function isvalidcircle(i,j,r,m,n,options)
+	return (options.bounds_row[1] < i/m < options.bounds_row[2]) && 
+		(options.bounds_column[1] < j/n < options.bounds_column[2]) && 
+		(options.bounds_radius[1] < r/m < options.bounds_radius[2])
+end
+
 """
 	initvals(img,thresh=0.5)
 Try to find good initial guesses for the cornea position in image `img`, which should be full color. The `thresh` parameter is the fraction of the max in the green channel intensity that a pixel should have to be considered part of the sclera. Returns a vector of zero to two tuples of (center_i,center_j,radius)
 """ 
-function initvals(X::AbstractMatrix{T} where T <: AbstractRGB,thresh=0.5)
+function initvals(X::AbstractMatrix{T} where T <: AbstractRGB,purk=findpurkinje(X);options=get_defaults())
 	m,n = size(X)
-	purk = findpurkinje(X,rectangle=true)
 	
 	# vertically, use the purkinje if possible
 	i_c = length(purk) > 50 ? median(i[1] for i in purk) : m/2
@@ -12,8 +17,8 @@ function initvals(X::AbstractMatrix{T} where T <: AbstractRGB,thresh=0.5)
 	# horizontal guess 1: use the sclera's brightness
 	G = green.(X) 
 	G[purk] .= 0  # ignore the purkinje 
-	idx = findall(G.>thresh*maximum(G))
 	
+	idx = findall(G.>0.5*maximum(G))
 	## get distribution peaks
 	j_c = r_c = jleft = jright = 0
 	try
@@ -26,15 +31,17 @@ function initvals(X::AbstractMatrix{T} where T <: AbstractRGB,thresh=0.5)
 
 	## reject if the radius is unrealistic
 	@debug "init1 = ($i_c,$j_c,$r_c)"
-	guess = BOUNDS_RADIUS[1] < r_c/m < BOUNDS_RADIUS[2] ? [(i_c,j_c,r_c)] : []
+	guess = isvalidcircle(i_c,j_c,r_c,m,n,options) ? [(i_c,j_c,r_c)] : []
 
 	# horizontal guess 2: use the purkinje location heuristically
 	if length(purk) > 50
 		j_p = median(i[2] for i in purk)
-		r_c = (jright - j_p)/(1-PURKINJE_LOCATION)
+		r_c = (jright - j_p)/(1-options.purkinje_location)
 		j_c = jright - r_c
 		@debug "init2 = ($i_c,$j_c,$r_c)"
-		push!(guess,(i_c,j_c,r_c))
+		if isvalidcircle(i_c,j_c,r_c,m,n,options)
+			push!(guess,(i_c,j_c,r_c))
+		end
 	end
 
 	return guess
@@ -60,14 +67,15 @@ end
 	fitcircle(imgfun,i0,j0,r0[,t_range][;options=missing])
 Find the circle that optimizes the total r-difference criterion, given initial values for the center and radius. Optionally specify the range of angles to be used (measured from straight down in the image) and options for the `optimize` solver.
 """
-function fitcircle(imgfun,m,n,i0,j0,r0,θ=[-π,π];options=missing)
+function fitcircle(imgfun,m,n,i0,j0,r0,method,θ=[-π,π];options=get_defaults())
 	# don't let the center get too close to the edges, or the radius get too small or too close to the nearest edge
 	function penalty(u)
-		f = (x,lo,hi) -> -log( max(1e-12,(x-lo)*(hi-x)) )
+		f = (x,lo,hi) -> log( max(1e-12,4(x-lo)*(hi-x)/(hi-lo)^2) )^4
 		i,j,r = u
-		bc = BOUNDS_COORD
-		br = BOUNDS_RADIUS
-		return f(i/m,bc...) + f(j/n,bc...) + f(r/m,br...)
+		b1 = options.bounds_row
+		b2 = options.bounds_column
+		b3 = options.bounds_radius
+		return f(i/m,b1...) + f(j/n,b2...) + f(r/m,b3...)
 	end
 	
 	if length(θ)==2  # given a range
@@ -75,15 +83,8 @@ function fitcircle(imgfun,m,n,i0,j0,r0,θ=[-π,π];options=missing)
 		θ = filter( t->θ[1] ≤ t ≤ θ[2], 2π*(-180:180)/360)
 	end
 
-	objective = u -> -totalgrad(u...,imgfun,θ) + 0.4penalty(u) 
-	if ismissing(options)
-		options = (
-			method = NewtonTrustRegion(),
-			x_tol = 5e-2,
-			f_tol = 1e-8
-		)
-	end
-	res = optimize(objective,[i0,j0,r0];options...)
+	objective = u -> -totalgrad(u...,imgfun,θ) + 0.1penalty(u) 
+	res = optimize(objective,[i0,j0,r0],method,Optim.Options(x_tol = 1e-2,f_tol = 1e-8))
 	if !Optim.converged(res)
 		@warn "Optimization did not converge"
 		#show(res)

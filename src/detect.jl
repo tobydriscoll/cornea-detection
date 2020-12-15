@@ -13,11 +13,11 @@ function interpimage(img)
 end
 
 "Return data relevant for cornea detection to be used on the given image."
-function detectiondata(img,m,n)
+function detectiondata(img,m,n;options=get_defaults())
 	# select the angles for optimization of the circle residual
 	θ = 2π*(-180:180)/360
 	select = falses(size(θ))
-	for rng in DETECTION_ANGLES
+	for rng in options.angle_ranges
 		select[ rng[1] .<= θ .<= rng[2] ] .= true
 	end
 	θ = θ[select]
@@ -26,17 +26,13 @@ function detectiondata(img,m,n)
 	# 	append!(θ,LinRange(rng...,200))
 	# end	
 
-	# optimization methods
-	options = ( 
-		(method = NewtonTrustRegion(),x_tol = 5e-2,f_tol = 1e-6),
-		(method = NelderMead(initial_simplex=Optim.AffineSimplexer(m÷5,0)),x_tol = 5e-2,f_tol = 1e-6) 
-	)
+	X = imresize(img,m,n)
+	purk = findpurkinje(X)
 	
 	# optimization initializations
-	X = imresize(img,m,n)
-	u_init = [ (m/size(X,1)).*i for i in initvals(X) ]  # "smart"
+	u_init = [ (m/size(X,1)).*i for i in initvals(X,purk) ]  # "smart"
 	#append!(u_init,[ (m/size(img,1)).*i for i in initvals(img,.3) ])  # "smart", dark
-	append!(u_init,INITIALIZATION(m,n))            # dumb
+	append!(u_init,options.initializer(m,n))            # dumb
 
 	G = green.(X)
 
@@ -51,37 +47,37 @@ function detectiondata(img,m,n)
 	# 	end
 	# end
 	# Screen out purkinje, using a generous overestimate
-	iran,jran = findpurkinje(X,rectangle=true).indices
-	h,w = (iran[end]-iran[1],jran[end]-jran[1])
+	iran,jran = [ extrema(i[k] for i in purk) for k in 1:2 ]
+	h,w = iran[end]-iran[1],jran[end]-jran[1]
 	cen = round.(Int,(median(iran),median(jran)))
-	rows = clamp.(cen[1]-h:cen[1]+h,1,m)
-	cols = clamp.(cen[2]-w:cen[2]+w,1,n)
-	G[rows,cols] .= .3
+	rows = clamp.(cen[1]-2h:cen[1]+2h,1,m)
+	cols = clamp.(cen[2]-2w:cen[2]+2w,1,n)
+	G[rows,cols] .= median(G[rows,cols])
 
-	
 	# smooth and interpolate green channel
-	ker = KernelFactors.gaussian((m/BLUR_WIDTH,m/BLUR_WIDTH))
+	k = m/options.blur_width
+	ker = KernelFactors.gaussian((k,k))
 	Z = interpimage(imfilter(G,ker))
 
-	return Z,θ,u_init,options
+	return Z,θ,u_init
 end
 
-function detect(sz,Z,θ,u_init,options)
+function detect(sz,Z,θ,u_init;options=get_defaults())
 	# Given data and multiple intitializations and options, try them all and find the best.
 	u,fmin,best = [],Inf,[]
-	for ui in u_init, opt in options
-		unew,fnew = fitcircle(Z,sz...,ui...,θ,options=opt)
+	for ui in u_init, method in options.optimizers
+		unew,fnew = fitcircle(Z,sz...,ui...,method,θ;options)
 		@debug "latest: $unew,$fnew,$ui,$opt"
 		if fnew < fmin 
 			u,fmin = unew,fnew
-			best = (ui,opt)
+			best = (ui,method)
 		end
 	end
 	return u,fmin,best
 end
 
-function detect(img::AbstractMatrix{T} where T <: Colorant,sz=size(img))
-	detect(sz,detectiondata(img,sz...)...)
+function detect(img::AbstractMatrix{T} where T <: Colorant,sz=size(img);options=get_defaults())
+	detect(sz,detectiondata(img,sz...)...;options)
 end
 
 """
@@ -97,19 +93,19 @@ Returns a named tuple with the following fields:
 * `init` initial condition that led to the optimal result
 * `method` info about the optimizer that got the optimal result
 """
-function detect(folder::AbstractVector{String},sz=[])
+function detect(folder::AbstractVector{String},sz=[];options=get_defaults())
 	result = (cenrow = Float32[], cencol = Float32[], radius = Float32[], fmin = Float32[], init = [], method = [] )
 	if isempty(sz)
 		sz = size(load(folder[1]))
 	end
 	@showprogress for fname in folder
 		img = load(fname)
-		Z,θ,u_init,options = detectiondata(img,sz...)
+		Z,θ,u_init = detectiondata(img,sz...;options)
 		if !isempty(result.radius)
 			new_ui = sz[1].*(result.cenrow[end],result.cencol[end],result.radius[end])
 			push!(u_init,new_ui)
 		end
-		u,fmin,best = detect(sz,Z,θ,u_init,options)
+		u,fmin,best = detect(sz,Z,θ,u_init;options)
 
 		push!(result.cenrow,u[1]/sz[1])
 		push!(result.cencol,u[2]/sz[1])
