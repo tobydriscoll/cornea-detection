@@ -68,10 +68,8 @@ end
 Return indices of pixels believed to be in the purkinje of the image `img`. Decrease `thresh` toward zero to include more pixels, or increase to one to include fewer. Returns a vector of `CartesianIndex`.
 """
 function findpurkinje(img::AbstractMatrix{T} where T<:Colorant,thresh=0.5;channel=PURKINJE_CHANNEL,rectangle=false)
-	# want to use full color for growing the rectangle
 	idx = findpurkinje(channel.(img),thresh,rectangle=rectangle)
 	return idx
-	#return rectangle ? idx : grow_rectangle(img,idx.indices...,.65)
 end
 
 function findpurkinje(X::AbstractMatrix{T} where T<:Number,thresh=0.5;rectangle=false)

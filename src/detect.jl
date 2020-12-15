@@ -21,31 +21,22 @@ function detectiondata(img,m,n;options=get_defaults())
 		select[ rng[1] .<= θ .<= rng[2] ] .= true
 	end
 	θ = θ[select]
-	# θ = Float64[] 
-	# for rng in DETECTION_ANGLES
-	# 	append!(θ,LinRange(rng...,200))
-	# end	
 
 	X = imresize(img,m,n)
 	purk = findpurkinje(X)
 	
 	# optimization initializations
 	u_init = [ (m/size(X,1)).*i for i in initvals(X,purk) ]  # "smart"
-	#append!(u_init,[ (m/size(img,1)).*i for i in initvals(img,.3) ])  # "smart", dark
 	append!(u_init,options.initializer(m,n))            # dumb
 
 	G = green.(X)
 
-	# try to screen out the eyelid lines, using bright values as the indicator
+	# try to screen out the eyelid lines, using bright blue values as the indicator.
 	C = blue.(X)
 	Cmax = mapwindow(maximum,C,(15,15))  # windowed max
 	thresh = 0.75*maximum(C)
 	G[@. (Cmax > thresh) & (G > 0.25) ] .= 0.33
-	# for i in 1:m, j in 1:n 
-	# 	if (Cmax[i,j] > thresh) && (G[i,j] > 0.25)
-	# 		G[i,j] = 0.33
-	# 	end
-	# end
+
 	# Screen out purkinje, using a generous overestimate
 	iran,jran = [ extrema(i[k] for i in purk) for k in 1:2 ]
 	h,w = iran[end]-iran[1],jran[end]-jran[1]
