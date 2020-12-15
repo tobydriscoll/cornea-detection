@@ -69,8 +69,9 @@ Return indices of pixels believed to be in the purkinje of the image `img`. Decr
 """
 function findpurkinje(img::AbstractMatrix{T} where T<:Colorant,thresh=0.5;channel=PURKINJE_CHANNEL,rectangle=false)
 	# want to use full color for growing the rectangle
-	idx = findpurkinje(channel.(img),thresh,rectangle=true)
-	return rectangle ? idx : grow_rectangle(img,idx.indices...,.65)
+	idx = findpurkinje(channel.(img),thresh,rectangle=rectangle)
+	return idx
+	#return rectangle ? idx : grow_rectangle(img,idx.indices...,.65)
 end
 
 function findpurkinje(X::AbstractMatrix{T} where T<:Number,thresh=0.5;rectangle=false)
@@ -82,7 +83,7 @@ function findpurkinje(X::AbstractMatrix{T} where T<:Number,thresh=0.5;rectangle=
 		iran,jran,area = largest_rect(B)
 		@debug "iran = $iran, jran = $jran"
 		# If area is too small, there aren't enough pixels at this brightness.
-		if area < m*n/2000 
+		if area < m*n/8000 
 			θ -= 0.05
 			B = X.>θ
 			@debug "θ = $θ"
