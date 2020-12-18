@@ -41,26 +41,38 @@ function largest_rect(x::AbstractVector{T} where T <: Number)
 	return idx,height,maxarea
 end
 
-# Grow a rectangular region to include all the adjacent pixels with similar value. Smaller threshold means stricter check.
-function grow_rectangle(X::AbstractMatrix,irange,jrange,thresh=0.1)
+# Grow a rectangular region to include all the adjacent pixels with similar value. 
+function grow_rectangle(X::AbstractMatrix,irange,jrange)
 	m,n = size(X)
 	rect = Array(CartesianIndices((irange,jrange)))
 	isempty(rect) && (return rect)
+
+	# Go far outside to get an idea of the intensity of non-belonging pixels in the vicinity.
+	h,w = length(irange),length(jrange)
+	mid = round.(Int,(median(irange),median(jrange)))
+	ii = clamp.(mid[1]-h:mid[1]+h,1,m)
+	jj = clamp.(mid[2]-w:mid[2]+w,1,n)
+	outerval = median( [ vec(X[ii[[1,end]],jj]); vec(X[ii,jj[[1,end]]]) ] )
+
+	# Define region and average value in it.
 	region = vec(rect)
 	ifirst,ilast = irange[[1,end]]
 	jfirst,jlast = jrange[[1,end]]
-	avg = mean(X[region])  
+	avg = mean(X[region])
+
+	# Include those more like the average of the interior than the sampled exterior.
+	thresh = max(0.2,0.5*(avg-outerval))
+
 	for kk = 1:100
 		ifirst,ilast = max(1,ifirst-1),min(m,ilast+1)
 		jfirst,jlast = max(1,jfirst-1),min(n,jlast+1)
 		newpts = setdiff(CartesianIndices((ifirst:ilast,jfirst:jlast)),region)
 		add = @. abs(X[newpts]-avg) < thresh
-		#@debug "number added = $(count(add))"
+		#@show "number added = $(count(add))"
 		if count(add)==0
 			break
 		end
 		union!(region,newpts[add])
-		avg = mean(X[region])
 	end
 	return region
 end
@@ -109,7 +121,7 @@ function findpurkinje(X::AbstractMatrix{T} where T<:Number,thresh=0.5;options=ge
 			B[iran,jran] .= false
 		end
 	end
-	return rectangle ? CartesianIndices((iran,jran)) : grow_rectangle(X,iran,jran,.2)
+	return rectangle ? CartesianIndices((iran,jran)) : grow_rectangle(X,iran,jran)
 end
 
 """
