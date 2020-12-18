@@ -44,7 +44,9 @@ end
 # Grow a rectangular region to include all the adjacent pixels with similar value. Smaller threshold means stricter check.
 function grow_rectangle(X::AbstractMatrix,irange,jrange,thresh=0.1)
 	m,n = size(X)
-	region = vec(Array( CartesianIndices((irange,jrange)) ))
+	rect = Array(CartesianIndices((irange,jrange)))
+	isempty(rect) && (return rect)
+	region = vec(rect)
 	ifirst,ilast = irange[[1,end]]
 	jfirst,jlast = jrange[[1,end]]
 	avg = mean(X[region])  
@@ -67,12 +69,13 @@ end
 	findpurkinje(img,thresh=0.5)
 Return indices of pixels believed to be in the purkinje of the image `img`. Decrease `thresh` toward zero to include more pixels, or increase to one to include fewer. Returns a vector of `CartesianIndex`.
 """
-function findpurkinje(img::AbstractMatrix{T} where T<:Colorant,thresh=0.5;channel=PURKINJE_CHANNEL,rectangle=false)
-	idx = findpurkinje(channel.(img),thresh,rectangle=rectangle)
+function findpurkinje(img::AbstractMatrix{T} where T<:Colorant,thresh=0.5;options=get_defaults(),rectangle=false)
+	X = options.purkinje_channel.(img)
+	idx = findpurkinje(X,thresh;options,rectangle=rectangle)
 	return idx
 end
 
-function findpurkinje(X::AbstractMatrix{T} where T<:Number,thresh=0.5;rectangle=false)
+function findpurkinje(X::AbstractMatrix{T} where T<:Number,thresh=0.5;options=get_defaults(),rectangle=false)
 	m,n = size(X)
 	θ,area = 0.95,0
 	iran = jran = cen = NaN
@@ -81,12 +84,12 @@ function findpurkinje(X::AbstractMatrix{T} where T<:Number,thresh=0.5;rectangle=
 		iran,jran,area = largest_rect(B)
 		@debug "iran = $iran, jran = $jran"
 		# If area is too small, there aren't enough pixels at this brightness.
-		if area < m*n/8000 
+		if area ≤ m*n*options.purkinje_minarea
 			θ -= 0.05
 			B = X.>θ
 			@debug "θ = $θ"
 		else
-			h,w = (iran[end]-iran[1],jran[end]-jran[1])
+			h,w = (iran[end]-iran[1]+1,jran[end]-jran[1]+1)
 			# Must have appropriate aspect ratio. Bright lines at eyelids can give short, skinny rectangles.
 			if h > 0.8w 
 				# Must have contrast with neighboring pixels.
