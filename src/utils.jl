@@ -55,26 +55,31 @@ function grow_rectangle(X::AbstractMatrix,irange,jrange)
 	outerval = median( [ vec(X[ii[[1,end]],jj]); vec(X[ii,jj[[1,end]]]) ] )
 
 	# Define region and average value in it.
-	region = vec(rect)
-	ifirst,ilast = irange[[1,end]]
-	jfirst,jlast = jrange[[1,end]]
-	avg = mean(X[region])
+	region = falses(size(X))
+	region[irange,jrange] .= true
+	checked = copy(region)
 
 	# Include those more like the average of the interior than the sampled exterior.
+	avg = mean(X[region])
 	thresh = max(0.2,0.5*(avg-outerval))
+	nbrs = CartesianIndex.([(-1,0),(1,0),(0,-1),(0,1)])
 
-	for kk = 1:50
-		ifirst,ilast = max(1,ifirst-1),min(m,ilast+1)
-		jfirst,jlast = max(1,jfirst-1),min(n,jlast+1)
-		newpts = setdiff(CartesianIndices((ifirst:ilast,jfirst:jlast)),region)
-		add = @. abs(X[newpts]-avg) < thresh
-		#@show "number added = $(count(add))"
-		if count(add)==0
-			break
+	for kk = 1:1000
+		added = 0
+		for nbr in nbrs, r in findall(region)
+			newpt = r + nbr
+			if checkbounds(Bool,X,newpt) && !checked[newpt]
+				if abs(X[newpt] - avg) < thresh 
+					region[newpt] = true
+					added += 1
+				end
+				checked[newpt] = true
+			end
 		end
-		union!(region,newpts[add])
+		#@show added
+		(added == 0) && break
 	end
-	return region
+	return findall(region)
 end
 
 """
@@ -93,6 +98,7 @@ function findpurkinje(X::AbstractMatrix{T} where T<:Number,thresh=0.5;options=ge
 	iran = jran = cen = NaN
 	B = X.>θ
 	ctr = 0
+	removed = CartesianIndex{2}[]
 	while θ >= thresh
 		iran,jran,area = largest_rect(B)
 		@debug "iran = $iran, jran = $jran"
@@ -101,6 +107,7 @@ function findpurkinje(X::AbstractMatrix{T} where T<:Number,thresh=0.5;options=ge
 			θ -= 0.05
 			ctr = 0
 			B = X.>θ
+			#B[removed] .= false
 			@debug "θ = $θ"
 		else
 			h,w = (iran[end]-iran[1]+1,jran[end]-jran[1]+1)
@@ -113,14 +120,20 @@ function findpurkinje(X::AbstractMatrix{T} where T<:Number,thresh=0.5;options=ge
 				cols = clamp.(cen[2]-w:cen[2]+w,1,n)
 				inner = sum(X[iran,jran])
 				outer = sum(X[rows,cols]) - inner 
-				@debug "inner = $inner, outer = $outer"
-				if inner/area - outer/((2h+1)*(2w+1)-area) > 0.25
+				inneravg = inner/area
+				outeravg = outer/((2h+1)*(2w+1)-area)
+				@debug "inner = $inneravg, outer = $outeravg"
+				if inneravg - outeravg > 0.25
 					# we've got it
 					break
 				end
 			end
 			# Remove this region from consideration.
-			B[iran,jran] .= false
+			bad = CartesianIndices((iran,jran))
+			#bad = grow_rectangle(B,iran,jran)
+			B[bad] .= false
+			append!(removed,bad)
+			@debug length(removed)
 			ctr += 1
 		end
 	end
