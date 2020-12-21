@@ -103,7 +103,7 @@ function findpurkinje(X::AbstractMatrix{T} where T<:Number,thresh=0.5;options=ge
 		iran,jran,area = largest_rect(B)
 		@debug "iran = $iran, jran = $jran"
 		# If area is too small, there aren't enough pixels at this brightness.
-		if (ctr > 8) || (area ≤ m*n*options.purkinje_minarea)
+		if (ctr > 4) || (area ≤ m*n*options.purkinje_minarea)
 			θ -= 0.05
 			ctr = 0
 			B = X.>θ
