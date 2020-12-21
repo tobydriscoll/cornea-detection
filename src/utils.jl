@@ -92,12 +92,14 @@ function findpurkinje(X::AbstractMatrix{T} where T<:Number,thresh=0.5;options=ge
 	θ,area = 0.95,0
 	iran = jran = cen = NaN
 	B = X.>θ
+	ctr = 0
 	while θ >= thresh
 		iran,jran,area = largest_rect(B)
 		@debug "iran = $iran, jran = $jran"
 		# If area is too small, there aren't enough pixels at this brightness.
-		if area ≤ m*n*options.purkinje_minarea
+		if (ctr > 8) || (area ≤ m*n*options.purkinje_minarea)
 			θ -= 0.05
+			ctr = 0
 			B = X.>θ
 			@debug "θ = $θ"
 		else
@@ -119,6 +121,7 @@ function findpurkinje(X::AbstractMatrix{T} where T<:Number,thresh=0.5;options=ge
 			end
 			# Remove this region from consideration.
 			B[iran,jran] .= false
+			ctr += 1
 		end
 	end
 	return rectangle ? CartesianIndices((iran,jran)) : grow_rectangle(X,iran,jran)
