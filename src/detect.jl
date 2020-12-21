@@ -38,12 +38,14 @@ function detectiondata(img,m,n;options=get_defaults())
 	G[@. (Cmax > thresh) & (G > 0.25) ] .= 0.33
 
 	# Screen out purkinje, using a generous overestimate
-	iran,jran = [ extrema(i[k] for i in purk) for k in 1:2 ]
-	h,w = iran[end]-iran[1],jran[end]-jran[1]
-	cen = round.(Int,(median(iran),median(jran)))
-	rows = clamp.(cen[1]-2h:cen[1]+2h,1,m)
-	cols = clamp.(cen[2]-2w:cen[2]+2w,1,n)
-	G[rows,cols] .= median(G[rows,cols])
+	if !isempty(purk)
+		iran,jran = [ extrema(i[k] for i in purk) for k in 1:2 ]
+		h,w = iran[end]-iran[1],jran[end]-jran[1]
+		cen = round.(Int,(median(iran),median(jran)))
+		rows = clamp.(cen[1]-2h:cen[1]+2h,1,m)
+		cols = clamp.(cen[2]-2w:cen[2]+2w,1,n)
+		G[rows,cols] .= median(G[rows,cols])
+		end
 
 	# smooth and interpolate green channel
 	k = m/options.blur_width
@@ -58,7 +60,7 @@ function detect(sz,Z,θ,u_init;options=get_defaults())
 	u,fmin,best = [],Inf,[]
 	for ui in u_init, method in options.optimizers
 		unew,fnew = fitcircle(Z,sz...,ui...,method,θ;options)
-		@debug "latest: $unew,$fnew,$ui,$opt"
+		@debug "latest: $unew,$fnew,$ui,$method"
 		if fnew < fmin 
 			u,fmin = unew,fnew
 			best = (ui,method)
