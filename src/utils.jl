@@ -63,7 +63,7 @@ function grow_rectangle(X::AbstractMatrix,irange,jrange)
 	# Include those more like the average of the interior than the sampled exterior.
 	thresh = max(0.2,0.5*(avg-outerval))
 
-	for kk = 1:100
+	for kk = 1:50
 		ifirst,ilast = max(1,ifirst-1),min(m,ilast+1)
 		jfirst,jlast = max(1,jfirst-1),min(n,jlast+1)
 		newpts = setdiff(CartesianIndices((ifirst:ilast,jfirst:jlast)),region)
