@@ -155,9 +155,11 @@ function findpeaks(idx,sz,dim)
 	## search left/right sides separately 
 	k = argmax(w[1:50])
 	jleft = mean(edges[k:k+1])
+	wleft = w[k]
 	k = argmax(w[51:end])
 	jright = mean(edges[50+k:50+k+1])
+	wright = w[50+k]
 
-	return jleft,jright
+	return (jleft,wleft),(jright,wright)
 end
 

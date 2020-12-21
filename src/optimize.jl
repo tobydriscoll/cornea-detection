@@ -8,8 +8,11 @@ end
 	initvals(img,thresh=0.5)
 Try to find good initial guesses for the cornea position in image `img`, which should be full color. The `thresh` parameter is the fraction of the max in the green channel intensity that a pixel should have to be considered part of the sclera. Returns a vector of zero to two tuples of (center_i,center_j,radius)
 """ 
-function initvals(X::AbstractMatrix{T} where T <: AbstractRGB,purk=findpurkinje(X);options=get_defaults())
+function initvals(X::AbstractMatrix{T} where T <: AbstractRGB,purk=[];options=get_defaults())
 	m,n = size(X)
+	if isempty(purk)
+		purk = findpurkinje(X;options)
+	end
 	
 	# vertically, use the purkinje if possible
 	i_c = length(purk) > 50 ? median(i[1] for i in purk) : m/2
@@ -20,9 +23,9 @@ function initvals(X::AbstractMatrix{T} where T <: AbstractRGB,purk=findpurkinje(
 	
 	idx = findall(G.>0.5*maximum(G))
 	## get distribution peaks
-	j_c = r_c = jleft = jright = 0
+	j_c = r_c = jleft = jright = wleft = wright = 0
 	try
-		jleft,jright = findpeaks(idx,(m,n),2)
+		(jleft,wleft),(jright,wright) = findpeaks(idx,(m,n),2)
 		@debug "jleft,jright = $jleft,$jright"
 		j_c = (jleft+jright)/2
 		r_c = (jright-jleft)/2
@@ -36,8 +39,14 @@ function initvals(X::AbstractMatrix{T} where T <: AbstractRGB,purk=findpurkinje(
 	# horizontal guess 2: use the purkinje location heuristically
 	if length(purk) > 50
 		j_p = median(i[2] for i in purk)
-		r_c = (jright - j_p)/(1-options.purkinje_location)
-		j_c = jright - r_c
+		γ = options.purkinje_location
+		if wleft > wright
+			r_c = (jright - j_p)/(1-γ)
+			j_c = jright - r_c
+		else
+			r_c = (j_p-jleft)/(1+γ)
+			j_c = jleft + r_c 
+		end
 		@debug "init2 = ($i_c,$j_c,$r_c)"
 		if isvalidcircle(i_c,j_c,r_c,m,n,options)
 			push!(guess,(i_c,j_c,r_c))
