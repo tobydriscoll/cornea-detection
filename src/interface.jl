@@ -166,17 +166,25 @@ goodframes(T::Trial) = goodframes(summary(T))
 #
 struct ImageFolder
 	t::Trial
+	preprocessor
 	file::AbstractVector
 end
 
-ImageFolder(t::Trial) = ImageFolder(t,filenames(t,join=true))
-images(t::Trial) = ImageFolder(t)
+ImageFolder(t::Trial,prep=missing) = ImageFolder(t,prep,filenames(t,join=true))
+images(t::Trial,prep=missing) = ImageFolder(t,prep)
 ImageFolder(dataroot,s::Integer,v::Integer,t::Integer) = ImageFolder(Trial(dataroot,s,v,t))
 
-iterate(f::ImageFolder) = isempty(f.file) ? nothing : load(f.file[1]),1
-iterate(f::ImageFolder,state) = state==length(f.file) ? nothing : (load(f.file[state+1]),state+1)
+function getindex(img::ImageFolder,n::Integer)
+	X = load(img.file[n])
+	if !ismissing(img.preprocessor)
+		X = img.preprocessor(X)
+	end
+	return X
+end
+getindex(f::ImageFolder,inds) = ImageFolder(f.t,f.preprocessor,f.file[inds])
+
+iterate(f::ImageFolder) = isempty(f.file) ? nothing : (getindex(f,1),1)
+iterate(f::ImageFolder,state) = state==length(f.file) ? nothing : (getindex(f,state+1),state+1)
 length(f::ImageFolder) = length(f.file)
 isempty(f::ImageFolder) = isempty(f.file)
 IteratorEltype(ImageFolder) = EltypeUnknown()
-getindex(f::ImageFolder,ind::Integer) = load(f.file[ind])
-getindex(f::ImageFolder,inds) = [getindex(f,i) for i in inds]
