@@ -138,7 +138,8 @@ end
 
 results(root,subject,visit,trial) = results(Trial(root,subject,visit,trial))
 results(subject,visit,trial) = results(Trial(".",subject,visit,trial))
-results(t::Trial,dir=t.resultdir) = load(joinpath(dir,shortname(t)*".jld2"))["result"] |> DataFrame 
+#results(t::Trial,dir=t.resultdir) = load(joinpath(dir,shortname(t)*".jld2"))["result"] |> DataFrame 
+results(t::Trial,dir=t.resultdir) = load(joinpath(dir,shortname(t)*".csv")) |> DataFrame 
 
 summary(root,subject,visit,trial) = summary(Trial(root,subject,visit,trial))
 function summary(T::Trial) 
